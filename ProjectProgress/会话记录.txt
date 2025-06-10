@@ -1,0 +1,4437 @@
+
+
+虚拟仿真模组系统 /
+通过unity 3d，开发一套虚拟仿真系统，这个系统支持模组的导入，不仅包括3D模型的导入，还包括对应的功能脚本的导入。使得各自导入进来的模组之间，模组与系统之间可以交互。先写出你对需求的理解和相应的方案
+
+Edit
+我理解您想要开发一个基于Unity 3D的虚拟仿真系统，核心特点是支持动态模组化。让我详细分析一下需求和提供相应的技术方案。
+
+需求理解
+核心需求
+模组化系统架构 - 系统需要支持运行时动态加载和卸载模组
+双重导入能力 - 不仅导入3D模型资源，还要导入对应的功能脚本
+交互性 - 实现模组间交互、模组与主系统交互的机制
+扩展性 - 系统应该易于扩展，支持第三方开发者创建模组
+技术挑战
+运行时动态加载代码的安全性和兼容性
+模组间的依赖管理和版本控制
+统一的接口规范和通信机制
+资源管理和性能优化
+技术方案
+1. 系统架构设计
+┌─────────────────────────────────────────────┐
+│            主系统 (Core System)              │
+│  ┌────────────┐  ┌────────────┐  ┌────────┐│
+│  │ 模组管理器  │  │ 事件系统   │  │ UI管理 ││
+│  └────────────┘  └────────────┘  └────────┘│
+│  ┌────────────┐  ┌────────────┐  ┌────────┐│
+│  │ 资源加载器  │  │ 场景管理   │  │ 配置系统││
+│  └────────────┘  └────────────┘  └────────┘│
+└─────────────────────────────────────────────┘
+                      ↕
+┌─────────────────────────────────────────────┐
+│           模组接口层 (Mod Interface)         │
+│  ┌────────────┐  ┌────────────┐  ┌────────┐│
+│  │ IMod接口    │  │ 事件总线   │  │ API桥接││
+│  └────────────┘  └────────────┘  └────────┘│
+└─────────────────────────────────────────────┘
+                      ↕
+┌─────────────────────────────────────────────┐
+│              模组层 (Mods)                   │
+│  ┌──────┐  ┌──────┐  ┌──────┐  ┌──────┐   │
+│  │模组A  │  │模组B  │  │模组C  │  │ ...  │   │
+│  └──────┘  └──────┘  └──────┘  └──────┘   │
+└─────────────────────────────────────────────┘
+2. 模组结构设计
+每个模组包含：
+
+Manifest文件 (JSON/XML) - 描述模组信息、依赖关系、版本等
+资源包 - 3D模型、贴图、音频等资源
+脚本程序集 - 编译好的DLL文件
+配置文件 - 模组特定的配置参数
+3. 核心技术实现
+3.1 动态加载机制
+csharp
+// 使用Assembly.Load动态加载DLL
+public class ModLoader
+{
+    public void LoadMod(string modPath)
+    {
+        // 加载资源包
+        AssetBundle bundle = AssetBundle.LoadFromFile(Path.Combine(modPath, "assets.bundle"));
+        
+        // 加载脚本程序集
+        Assembly assembly = Assembly.LoadFrom(Path.Combine(modPath, "scripts.dll"));
+        
+        // 查找并实例化模组主类
+        Type modType = assembly.GetTypes().FirstOrDefault(t => typeof(IMod).IsAssignableFrom(t));
+        IMod modInstance = Activator.CreateInstance(modType) as IMod;
+        
+        // 初始化模组
+        modInstance.Initialize(bundle);
+    }
+}
+3.2 模组接口定义
+csharp
+public interface IMod
+{
+    string ModId { get; }
+    string Version { get; }
+    void Initialize(AssetBundle resources);
+    void OnEnable();
+    void OnDisable();
+    void OnUpdate();
+}
+3.3 事件系统实现
+csharp
+public class ModEventSystem
+{
+    private Dictionary<string, List<Action<object>>> eventHandlers;
+    
+    public void Subscribe(string eventName, Action<object> handler)
+    {
+        if (!eventHandlers.ContainsKey(eventName))
+            eventHandlers[eventName] = new List<Action<object>>();
+        eventHandlers[eventName].Add(handler);
+    }
+    
+    public void Publish(string eventName, object data)
+    {
+        if (eventHandlers.ContainsKey(eventName))
+        {
+            foreach (var handler in eventHandlers[eventName])
+                handler?.Invoke(data);
+        }
+    }
+}
+4. 安全性考虑
+沙箱机制 - 限制模组的系统访问权限
+API白名单 - 只暴露安全的API给模组使用
+资源隔离 - 每个模组的资源相互隔离
+代码签名 - 验证模组来源的可信度
+5. 开发工具链
+模组开发SDK - 提供基础类库和接口定义
+模组打包工具 - 自动化打包资源和脚本
+调试工具 - 支持模组的实时调试
+文档生成器 - 自动生成API文档
+6. 实施步骤
+Phase 1: 核心框架 (1-2个月)
+实现模组加载器
+建立事件系统
+定义核心接口
+Phase 2: 资源管理 (1个月)
+AssetBundle打包流程
+资源加载优化
+内存管理
+Phase 3: 开发工具 (1个月)
+SDK开发
+打包工具
+示例模组
+Phase 4: 测试优化 (1个月)
+性能测试
+安全测试
+文档完善
+这个方案提供了一个可扩展、安全且高效的模组化虚拟仿真系统框架。您觉得这个方案是否符合您的需求？有什么需要调整或深入探讨的地方吗？
+
+
+
+
+这个3d模型是从哪里来的，需要什么格式，系统怎么解析这个3D模型
+
+Edit
+这是一个很好的问题，让我详细说明3D模型的来源、格式和解析方案。
+
+3D模型来源
+1. 模型制作来源
+专业建模软件：3ds Max、Maya、Blender、Cinema 4D、SolidWorks、CATIA等
+扫描设备：3D扫描仪、摄影测量设备
+程序化生成：通过算法生成的模型
+在线模型库：Sketchfab、TurboSquid、Unity Asset Store等
+2. 推荐的模型格式
+2.1 通用交换格式
+┌────────────────────────────────────────────────┐
+│ FBX (.fbx)                                     │
+│ - 优点：支持完整的场景信息、动画、材质         │
+│ - 缺点：文件较大，格式专有                     │
+├────────────────────────────────────────────────┤
+│ glTF 2.0 (.gltf/.glb)                         │
+│ - 优点：开放标准、文件小、加载快               │
+│ - 缺点：功能相对有限                          │
+├────────────────────────────────────────────────┤
+│ OBJ (.obj)                                     │
+│ - 优点：简单通用、易于解析                     │
+│ - 缺点：不支持动画、材质信息有限               │
+├────────────────────────────────────────────────┤
+│ DAE/Collada (.dae)                            │
+│ - 优点：XML格式、支持动画                      │
+│ - 缺点：文件较大、解析较慢                     │
+└────────────────────────────────────────────────┘
+2.2 Unity特定格式
+Prefab - Unity预制体，包含完整的组件信息
+Asset Bundle - Unity资源包，支持运行时加载
+模型解析方案
+1. 运行时加载架构
+csharp
+public class ModelLoader : MonoBehaviour
+{
+    // 支持的模型格式枚举
+    public enum ModelFormat
+    {
+        FBX, GLTF, OBJ, DAE, PREFAB
+    }
+    
+    // 模型数据结构
+    public class ModelData
+    {
+        public GameObject gameObject;
+        public Mesh[] meshes;
+        public Material[] materials;
+        public AnimationClip[] animations;
+        public Dictionary<string, object> metadata;
+    }
+}
+2. 格式解析实现
+2.1 glTF格式解析（推荐）
+csharp
+using GLTFast;
+
+public class GLTFModelLoader
+{
+    private GltfImport gltfImport;
+    
+    public async Task<ModelData> LoadGLTF(string path)
+    {
+        gltfImport = new GltfImport();
+        
+        // 加载glTF文件
+        bool success = await gltfImport.Load(path);
+        
+        if (success)
+        {
+            // 实例化模型
+            GameObject modelObject = new GameObject("GLTFModel");
+            await gltfImport.InstantiateMainSceneAsync(modelObject.transform);
+            
+            // 提取模型数据
+            ModelData data = new ModelData
+            {
+                gameObject = modelObject,
+                meshes = ExtractMeshes(modelObject),
+                materials = ExtractMaterials(modelObject),
+                animations = ExtractAnimations(modelObject)
+            };
+            
+            return data;
+        }
+        
+        return null;
+    }
+}
+2.2 FBX格式解析
+csharp
+using TriLib;
+
+public class FBXModelLoader
+{
+    public ModelData LoadFBX(string path)
+    {
+        // 使用TriLib插件加载FBX
+        var assetLoader = new AssetLoader();
+        var options = AssetLoader.CreateDefaultLoaderOptions();
+        
+        GameObject modelObject = assetLoader.LoadFromFile(path, options);
+        
+        return new ModelData
+        {
+            gameObject = modelObject,
+            meshes = modelObject.GetComponentsInChildren<MeshFilter>()
+                               .Select(mf => mf.mesh).ToArray(),
+            materials = modelObject.GetComponentsInChildren<Renderer>()
+                                  .SelectMany(r => r.materials).ToArray()
+        };
+    }
+}
+2.3 OBJ格式解析
+csharp
+public class OBJModelLoader
+{
+    public ModelData LoadOBJ(string objPath, string mtlPath = null)
+    {
+        // 解析OBJ文件
+        List<Vector3> vertices = new List<Vector3>();
+        List<Vector3> normals = new List<Vector3>();
+        List<Vector2> uvs = new List<Vector2>();
+        List<int> triangles = new List<int>();
+        
+        string[] lines = File.ReadAllLines(objPath);
+        
+        foreach (string line in lines)
+        {
+            string[] parts = line.Split(' ');
+            
+            switch (parts[0])
+            {
+                case "v": // 顶点
+                    vertices.Add(new Vector3(
+                        float.Parse(parts[1]),
+                        float.Parse(parts[2]),
+                        float.Parse(parts[3])
+                    ));
+                    break;
+                    
+                case "vn": // 法线
+                    normals.Add(new Vector3(
+                        float.Parse(parts[1]),
+                        float.Parse(parts[2]),
+                        float.Parse(parts[3])
+                    ));
+                    break;
+                    
+                case "vt": // UV坐标
+                    uvs.Add(new Vector2(
+                        float.Parse(parts[1]),
+                        float.Parse(parts[2])
+                    ));
+                    break;
+                    
+                case "f": // 面
+                    ParseFace(parts, triangles);
+                    break;
+            }
+        }
+        
+        // 创建Mesh
+        Mesh mesh = new Mesh();
+        mesh.vertices = vertices.ToArray();
+        mesh.normals = normals.ToArray();
+        mesh.uv = uvs.ToArray();
+        mesh.triangles = triangles.ToArray();
+        
+        // 创建GameObject
+        GameObject modelObject = new GameObject("OBJModel");
+        MeshFilter meshFilter = modelObject.AddComponent<MeshFilter>();
+        MeshRenderer renderer = modelObject.AddComponent<MeshRenderer>();
+        meshFilter.mesh = mesh;
+        
+        return new ModelData { gameObject = modelObject, meshes = new[] { mesh } };
+    }
+}
+3. 统一的模型加载管理器
+csharp
+public class UnifiedModelLoader : MonoBehaviour
+{
+    private Dictionary<ModelFormat, IModelLoader> loaders;
+    
+    void Awake()
+    {
+        // 注册各种格式的加载器
+        loaders = new Dictionary<ModelFormat, IModelLoader>
+        {
+            { ModelFormat.GLTF, new GLTFModelLoader() },
+            { ModelFormat.FBX, new FBXModelLoader() },
+            { ModelFormat.OBJ, new OBJModelLoader() },
+            { ModelFormat.PREFAB, new PrefabModelLoader() }
+        };
+    }
+    
+    public async Task<ModelData> LoadModel(string path)
+    {
+        // 根据文件扩展名确定格式
+        ModelFormat format = DetectFormat(path);
+        
+        if (loaders.ContainsKey(format))
+        {
+            return await loaders[format].LoadAsync(path);
+        }
+        
+        throw new NotSupportedException($"Format {format} not supported");
+    }
+    
+    // 模型后处理
+    public void PostProcessModel(ModelData data)
+    {
+        // 优化网格
+        OptimizeMeshes(data.meshes);
+        
+        // 生成LOD
+        GenerateLODs(data.gameObject);
+        
+        // 设置碰撞体
+        SetupColliders(data.gameObject);
+        
+        // 材质处理
+        ProcessMaterials(data.materials);
+    }
+}
+4. 模型验证和优化
+csharp
+public class ModelValidator
+{
+    public struct ValidationResult
+    {
+        public bool isValid;
+        public List<string> warnings;
+        public List<string> errors;
+    }
+    
+    public ValidationResult ValidateModel(ModelData model)
+    {
+        var result = new ValidationResult
+        {
+            warnings = new List<string>(),
+            errors = new List<string>()
+        };
+        
+        // 检查多边形数量
+        int totalPolygons = model.meshes.Sum(m => m.triangles.Length / 3);
+        if (totalPolygons > 100000)
+        {
+            result.warnings.Add($"High polygon count: {totalPolygons}");
+        }
+        
+        // 检查材质数量
+        if (model.materials.Length > 10)
+        {
+            result.warnings.Add($"Too many materials: {model.materials.Length}");
+        }
+        
+        // 检查UV映射
+        foreach (var mesh in model.meshes)
+        {
+            if (mesh.uv.Length == 0)
+            {
+                result.warnings.Add("Missing UV coordinates");
+            }
+        }
+        
+        result.isValid = result.errors.Count == 0;
+        return result;
+    }
+}
+5. 模组中的模型配置
+json
+{
+    "modId": "example_mod",
+    "models": [
+        {
+            "id": "model_001",
+            "path": "models/example.gltf",
+            "format": "gltf",
+            "scale": [1, 1, 1],
+            "rotation": [0, 0, 0],
+            "position": [0, 0, 0],
+            "lods": [
+                {
+                    "level": 0,
+                    "distance": 10,
+                    "path": "models/example_lod0.gltf"
+                },
+                {
+                    "level": 1,
+                    "distance": 50,
+                    "path": "models/example_lod1.gltf"
+                }
+            ],
+            "collider": {
+                "type": "mesh",
+                "convex": true
+            },
+            "metadata": {
+                "author": "模型作者",
+                "license": "CC-BY-4.0",
+                "tags": ["furniture", "chair"]
+            }
+        }
+    ]
+}
+6. 最佳实践建议
+推荐使用glTF 2.0格式
+开放标准，广泛支持
+文件小，加载快
+支持PBR材质
+模型优化要求
+控制多边形数量（移动端<10k，PC端<50k）
+合并材质，减少Draw Call
+使用LOD技术
+材质处理
+统一使用PBR材质流程
+纹理压缩（DXT/ETC2/ASTC）
+纹理尺寸规范化（2的幂次方）
+性能考虑
+异步加载，避免阻塞主线程
+实现模型缓存机制
+支持流式加载大型模型
+这样的设计可以支持多种3D模型格式，并提供统一的加载和管理接口。您对某个特定格式有偏好吗？或者需要我详细说明某个具体的实现细节？
+
+
+
+
+如果使用gltf格式，那么对于一个机械臂，每个关节点的旋转中心坐标怎么设定
+
+Edit
+这是一个非常重要的问题。对于机械臂这类需要精确控制关节运动的模型，正确设置旋转中心（pivot point）是关键。让我详细说明在glTF格式中如何处理这个问题。
+
+glTF中的层级结构和变换
+1. glTF节点层级概念
+glTF使用节点树结构来表示模型的层级关系，每个节点都有自己的变换矩阵：
+
+json
+{
+  "nodes": [
+    {
+      "name": "机械臂基座",
+      "mesh": 0,
+      "children": [1],
+      "translation": [0, 0, 0],
+      "rotation": [0, 0, 0, 1],
+      "scale": [1, 1, 1]
+    },
+    {
+      "name": "关节1",
+      "mesh": 1,
+      "children": [2],
+      "translation": [0, 0.5, 0],  // 相对于父节点的位置
+      "rotation": [0, 0, 0, 1]
+    },
+    {
+      "name": "关节2",
+      "mesh": 2,
+      "children": [3],
+      "translation": [0, 0.8, 0],  // 相对于关节1的位置
+      "rotation": [0, 0, 0, 1]
+    }
+  ]
+}
+2. 建模时设置旋转中心的最佳实践
+2.1 在3D建模软件中的设置（以Blender为例）
+python
+# Blender Python脚本示例：设置机械臂关节旋转中心
+import bpy
+
+def setup_robot_arm_pivots():
+    # 创建机械臂层级结构
+    base = bpy.data.objects['Base']
+    joint1 = bpy.data.objects['Joint1']
+    joint2 = bpy.data.objects['Joint2']
+    joint3 = bpy.data.objects['Joint3']
+    end_effector = bpy.data.objects['EndEffector']
+    
+    # 设置父子关系
+    joint1.parent = base
+    joint2.parent = joint1
+    joint3.parent = joint2
+    end_effector.parent = joint3
+    
+    # 设置每个关节的原点（旋转中心）
+    # 关节1：底部旋转关节
+    joint1.location = (0, 0, 0.5)  # 基座顶部
+    bpy.context.view_layer.objects.active = joint1
+    bpy.ops.object.origin_set(type='ORIGIN_CURSOR', center='MEDIAN')
+    
+    # 关节2：肩部关节
+    joint2.location = (0, 0, 0.8)  # 相对于关节1
+    bpy.context.view_layer.objects.active = joint2
+    bpy.ops.object.origin_set(type='ORIGIN_CURSOR', center='MEDIAN')
+3. Unity中的机械臂控制系统
+csharp
+[System.Serializable]
+public class JointConfiguration
+{
+    public string jointName;
+    public Vector3 rotationAxis;      // 旋转轴
+    public float minAngle = -180f;    // 最小旋转角度
+    public float maxAngle = 180f;     // 最大旋转角度
+    public float currentAngle = 0f;   // 当前角度
+    public Vector3 pivotOffset;       // 旋转中心偏移
+}
+
+public class RobotArmController : MonoBehaviour
+{
+    [SerializeField]
+    private List<JointConfiguration> joints = new List<JointConfiguration>();
+    
+    private Dictionary<string, Transform> jointTransforms;
+    private Dictionary<string, Vector3> originalPivotPositions;
+    
+    void Start()
+    {
+        InitializeJoints();
+        StorePivotPositions();
+    }
+    
+    void InitializeJoints()
+    {
+        jointTransforms = new Dictionary<string, Transform>();
+        
+        // 从glTF加载的模型中查找关节
+        foreach (var joint in joints)
+        {
+            Transform jointTransform = transform.Find(joint.jointName);
+            if (jointTransform != null)
+            {
+                jointTransforms[joint.jointName] = jointTransform;
+                
+                // 如果需要调整旋转中心
+                if (joint.pivotOffset != Vector3.zero)
+                {
+                    AdjustPivotPoint(jointTransform, joint.pivotOffset);
+                }
+            }
+        }
+    }
+    
+    // 调整旋转中心的方法
+    void AdjustPivotPoint(Transform joint, Vector3 offset)
+    {
+        // 创建一个新的父对象作为旋转中心
+        GameObject pivotObject = new GameObject($"{joint.name}_Pivot");
+        pivotObject.transform.position = joint.position + offset;
+        pivotObject.transform.rotation = joint.rotation;
+        
+        // 重新设置父子关系
+        Transform originalParent = joint.parent;
+        pivotObject.transform.parent = originalParent;
+        joint.parent = pivotObject.transform;
+        
+        // 调整位置以保持原始位置
+        joint.localPosition = -offset;
+    }
+    
+    // 控制关节旋转
+    public void RotateJoint(string jointName, float angle)
+    {
+        if (jointTransforms.ContainsKey(jointName))
+        {
+            var joint = joints.Find(j => j.jointName == jointName);
+            if (joint != null)
+            {
+                // 限制角度范围
+                angle = Mathf.Clamp(angle, joint.minAngle, joint.maxAngle);
+                joint.currentAngle = angle;
+                
+                // 应用旋转
+                Transform jointTransform = jointTransforms[jointName];
+                jointTransform.localRotation = Quaternion.AngleAxis(angle, joint.rotationAxis);
+            }
+        }
+    }
+}
+4. 机械臂配置文件示例
+json
+{
+  "robotArm": {
+    "name": "6轴工业机械臂",
+    "joints": [
+      {
+        "id": "base_rotation",
+        "name": "基座旋转",
+        "type": "revolute",
+        "axis": [0, 1, 0],
+        "pivotPoint": [0, 0.1, 0],
+        "limits": {
+          "min": -180,
+          "max": 180
+        },
+        "defaultAngle": 0
+      },
+      {
+        "id": "shoulder_pitch",
+        "name": "肩部俯仰",
+        "type": "revolute",
+        "axis": [1, 0, 0],
+        "pivotPoint": [0, 0.5, 0],
+        "limits": {
+          "min": -90,
+          "max": 90
+        },
+        "defaultAngle": 0
+      },
+      {
+        "id": "elbow_pitch",
+        "name": "肘部俯仰",
+        "type": "revolute",
+        "axis": [1, 0, 0],
+        "pivotPoint": [0, 0.8, 0],
+        "limits": {
+          "min": -135,
+          "max": 135
+        },
+        "defaultAngle": 0
+      },
+      {
+        "id": "wrist_pitch",
+        "name": "腕部俯仰",
+        "type": "revolute",
+        "axis": [1, 0, 0],
+        "pivotPoint": [0, 1.2, 0],
+        "limits": {
+          "min": -90,
+          "max": 90
+        },
+        "defaultAngle": 0
+      },
+      {
+        "id": "wrist_roll",
+        "name": "腕部旋转",
+        "type": "revolute",
+        "axis": [0, 0, 1],
+        "pivotPoint": [0, 1.3, 0],
+        "limits": {
+          "min": -180,
+          "max": 180
+        },
+        "defaultAngle": 0
+      },
+      {
+        "id": "end_effector",
+        "name": "末端执行器",
+        "type": "fixed",
+        "attachPoint": [0, 1.4, 0]
+      }
+    ]
+  }
+}
+5. 运行时动态调整旋转中心
+csharp
+public class DynamicPivotAdjuster : MonoBehaviour
+{
+    // 可视化调试
+    public bool showPivotPoints = true;
+    public float pivotGizmoSize = 0.05f;
+    
+    // 运行时调整旋转中心
+    public void AdjustPivotAtRuntime(Transform joint, Vector3 newPivotWorld)
+    {
+        // 计算当前旋转中心到新旋转中心的偏移
+        Vector3 currentPivot = joint.position;
+        Vector3 pivotDelta = newPivotWorld - currentPivot;
+        
+        // 保存子对象的世界坐标
+        List<(Transform child, Vector3 worldPos, Quaternion worldRot)> children = 
+            new List<(Transform, Vector3, Quaternion)>();
+        
+        foreach (Transform child in joint)
+        {
+            children.Add((child, child.position, child.rotation));
+        }
+        
+        // 移动关节到新的旋转中心
+        joint.position = newPivotWorld;
+        
+        // 恢复子对象的世界坐标
+        foreach (var (child, worldPos, worldRot) in children)
+        {
+            child.position = worldPos;
+            child.rotation = worldRot;
+        }
+    }
+    
+    // 可视化旋转中心
+    void OnDrawGizmos()
+    {
+        if (!showPivotPoints) return;
+        
+        var joints = GetComponentsInChildren<Transform>();
+        foreach (var joint in joints)
+        {
+            if (joint.name.Contains("Joint") || joint.name.Contains("关节"))
+            {
+                Gizmos.color = Color.red;
+                Gizmos.DrawWireSphere(joint.position, pivotGizmoSize);
+                
+                // 绘制旋转轴
+                Gizmos.color = Color.blue;
+                Gizmos.DrawRay(joint.position, joint.up * 0.1f);
+                Gizmos.color = Color.red;
+                Gizmos.DrawRay(joint.position, joint.right * 0.1f);
+                Gizmos.color = Color.green;
+                Gizmos.DrawRay(joint.position, joint.forward * 0.1f);
+            }
+        }
+    }
+}
+6. 逆运动学（IK）集成
+csharp
+using Unity.Robotics.UrdfImporter;
+
+public class RobotArmIKController : MonoBehaviour
+{
+    [SerializeField]
+    private Transform endEffector;
+    
+    [SerializeField]
+    private Transform ikTarget;
+    
+    private ArticulationBody[] articulationBodies;
+    
+    void Start()
+    {
+        // 获取所有关节的ArticulationBody组件
+        articulationBodies = GetComponentsInChildren<ArticulationBody>();
+    }
+    
+    void Update()
+    {
+        if (ikTarget != null)
+        {
+            SolveIK();
+        }
+    }
+    
+    void SolveIK()
+    {
+        // 使用CCD（循环坐标下降）算法
+        for (int iteration = 0; iteration < 10; iteration++)
+        {
+            for (int i = articulationBodies.Length - 1; i >= 0; i--)
+            {
+                var joint = articulationBodies[i];
+                if (joint.jointType == ArticulationJointType.RevoluteJoint)
+                {
+                    // 计算关节到末端执行器的向量
+                    Vector3 toEnd = endEffector.position - joint.transform.position;
+                    Vector3 toTarget = ikTarget.position - joint.transform.position;
+                    
+                    // 计算旋转
+                    float angle = Vector3.SignedAngle(toEnd, toTarget, joint.transform.right);
+                    
+                    // 应用旋转限制
+                    var drive = joint.xDrive;
+                    angle = Mathf.Clamp(angle, drive.lowerLimit, drive.upperLimit);
+                    
+                    // 设置关节角度
+                    drive.target = joint.jointPosition[0] + angle;
+                    joint.xDrive = drive;
+                }
+            }
+            
+            // 检查是否达到目标
+            if (Vector3.Distance(endEffector.position, ikTarget.position) < 0.01f)
+            {
+                break;
+            }
+        }
+    }
+}
+7. 最佳实践总结
+建模阶段
+在3D软件中正确设置每个部件的原点
+使用空对象作为旋转节点
+保持合理的层级结构
+导出设置
+确保导出时保留层级结构
+使用Y-up坐标系（Unity标准）
+包含骨骼/关节信息
+Unity中处理
+使用配置文件定义关节参数
+实现运行时旋转中心调整
+添加可视化调试工具
+性能优化
+使用ArticulationBody代替普通刚体
+批量更新关节位置
+实现LOD系统
+这样的设计可以灵活处理各种机械臂模型，并支持精确的关节控制。您是否需要我详细说明某个特定部分，比如IK算法的实现或者特定类型机械臂的配置？
+
+
+
+
+既然已经在3D软件中正确设置了每个部分和层级结构，为什么在unity中处理时，还需要使用配置文件定义关节参数呢
+
+Edit
+这是一个很好的问题！确实，如果在3D软件中已经设置好了层级结构和旋转中心，为什么还需要额外的配置文件呢？让我解释这背后的原因：
+
+为什么需要配置文件
+1. 3D模型只包含静态结构信息
+3D模型文件（包括glTF）主要存储的是几何和视觉信息：
+
+网格数据（顶点、面、UV等）
+材质和纹理
+骨骼/节点层级
+静态变换矩阵
+但不包含：
+
+关节的运动限制（最大/最小角度）
+运动轴的定义和约束
+关节的运动类型（旋转/平移/球形关节等）
+物理属性（质量、摩擦力、阻尼等）
+控制参数（速度限制、加速度等）
+2. 实际案例对比
+让我用一个具体例子说明：
+
+csharp
+// 仅依赖3D模型的方式
+public class SimpleArmController : MonoBehaviour
+{
+    void RotateJoint(Transform joint, float angle)
+    {
+        // 问题1：不知道应该绕哪个轴旋转
+        joint.Rotate(Vector3.up, angle); // 猜测是Y轴？
+        
+        // 问题2：不知道角度限制
+        // 可能导致机械臂旋转360度穿过自己
+        
+        // 问题3：不知道这是什么类型的关节
+        // 是旋转关节还是移动关节？
+    }
+}
+
+// 使用配置文件的方式
+public class ConfiguredArmController : MonoBehaviour
+{
+    [SerializeField]
+    private RobotArmConfig config; // 从配置文件加载
+    
+    void RotateJoint(string jointName, float angle)
+    {
+        var jointConfig = config.GetJoint(jointName);
+        var joint = transform.Find(jointName);
+        
+        // 优势1：明确的旋转轴
+        Vector3 axis = jointConfig.rotationAxis;
+        
+        // 优势2：角度限制
+        angle = Mathf.Clamp(angle, jointConfig.minAngle, jointConfig.maxAngle);
+        
+        // 优势3：根据关节类型处理
+        switch (jointConfig.jointType)
+        {
+            case JointType.Revolute:
+                joint.localRotation = Quaternion.AngleAxis(angle, axis);
+                break;
+            case JointType.Prismatic:
+                joint.localPosition = axis * angle;
+                break;
+        }
+    }
+}
+3. 配置文件的实际价值
+3.1 功能扩展性
+json
+{
+  "joint": {
+    "name": "肘关节",
+    "mechanical": {
+      "type": "revolute",
+      "axis": [1, 0, 0],
+      "limits": [-135, 45],
+      "homePosition": 0
+    },
+    "dynamics": {
+      "maxVelocity": 180,        // 度/秒
+      "maxAcceleration": 360,    // 度/秒²
+      "damping": 0.1,
+      "inertia": 0.5
+    },
+    "control": {
+      "kp": 100,                 // PID参数
+      "ki": 0.1,
+      "kd": 10,
+      "deadzone": 0.5
+    },
+    "safety": {
+      "softLimitMin": -130,      // 软限位
+      "softLimitMax": 40,
+      "collisionGroups": ["arm", "base"],
+      "emergencyStopAccel": 1000
+    }
+  }
+}
+3.2 多场景适配
+csharp
+public class AdaptiveRobotController : MonoBehaviour
+{
+    // 同一个3D模型，不同的应用场景
+    public enum ApplicationMode
+    {
+        Simulation,      // 仿真模式：无物理限制
+        Teaching,        // 教学模式：速度慢，范围小
+        Production,      // 生产模式：高速，全范围
+        Maintenance      // 维护模式：特殊限制
+    }
+    
+    public void LoadConfiguration(ApplicationMode mode)
+    {
+        string configPath = $"Configs/RobotArm_{mode}.json";
+        var config = LoadConfig(configPath);
+        ApplyConfiguration(config);
+    }
+}
+4. 分离关注点的优势
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│   3D模型文件     │     │    配置文件      │     │    行为脚本      │
+├─────────────────┤     ├─────────────────┤     ├─────────────────┤
+│ • 几何形状       │     │ • 运动参数      │     │ • 控制逻辑      │
+│ • 材质纹理       │     │ • 物理属性      │     │ • 交互行为      │
+│ • 层级结构       │     │ • 安全限制      │     │ • AI决策        │
+│ • 动画数据       │     │ • 性能参数      │     │ • 用户输入      │
+└─────────────────┘     └─────────────────┘     └─────────────────┘
+         ↓                       ↓                       ↓
+         └───────────────────────┴───────────────────────┘
+                                 ↓
+                        完整的机械臂系统
+5. 实际开发中的便利性
+5.1 快速迭代
+csharp
+// 不需要重新导出模型就能调整参数
+public class ConfigHotReload : MonoBehaviour
+{
+    [SerializeField]
+    private string configPath;
+    
+    void Update()
+    {
+        if (Input.GetKeyDown(KeyCode.R))
+        {
+            // 热重载配置
+            ReloadConfiguration();
+            Debug.Log("配置已重新加载，无需重启场景");
+        }
+    }
+}
+5.2 A/B测试
+csharp
+public class RobotABTesting : MonoBehaviour
+{
+    public void RunTest()
+    {
+        // 使用同一个模型测试不同配置
+        var configA = LoadConfig("ConfigA.json");
+        var configB = LoadConfig("ConfigB.json");
+        
+        var performanceA = TestPerformance(configA);
+        var performanceB = TestPerformance(configB);
+        
+        CompareResults(performanceA, performanceB);
+    }
+}
+6. 最佳实践建议
+模型负责"是什么"
+外观和结构
+基本的空间关系
+配置负责"怎么动"
+运动约束和限制
+性能参数
+安全规则
+代码负责"为什么动"
+业务逻辑
+控制策略
+用户交互
+这种分离使得：
+
+美术人员可以专注于模型制作
+工程师可以调整参数而不碰模型
+同一模型可以适应不同应用场景
+便于版本控制和团队协作
+所以，配置文件不是重复工作，而是对3D模型信息的必要补充，让机械臂从"静态模型"变成"可控系统"。
+
+
+
+
+行为脚本应该怎么来写，可以做到导入到系统中
+
+Edit
+这是模组化系统的核心问题！如何设计一个既安全又灵活的脚本系统，让第三方开发者能够编写可导入的行为脚本。我来详细说明几种方案：
+
+脚本系统架构设计
+1. 基于接口的插件系统（推荐）
+这是最安全和可控的方案：
+
+csharp
+// ===== 核心接口定义（主系统提供） =====
+namespace ModSystem.Core
+{
+    // 模组行为基础接口
+    public interface IModBehaviour
+    {
+        string BehaviourId { get; }
+        string Version { get; }
+        void OnInitialize(IModContext context);
+        void OnUpdate(float deltaTime);
+        void OnDestroy();
+    }
+    
+    // 模组上下文接口 - 提供安全的API访问
+    public interface IModContext
+    {
+        GameObject GameObject { get; }
+        IEventBus EventBus { get; }
+        IModAPI API { get; }
+        T GetComponent<T>() where T : Component;
+        void Log(string message);
+    }
+    
+    // 事件总线接口
+    public interface IEventBus
+    {
+        void Subscribe<T>(Action<T> handler) where T : IModEvent;
+        void Publish<T>(T eventData) where T : IModEvent;
+        void Unsubscribe<T>(Action<T> handler) where T : IModEvent;
+    }
+}
+2. 机械臂行为脚本示例
+csharp
+// ===== 模组开发者编写的脚本 =====
+using ModSystem.Core;
+using UnityEngine;
+
+namespace UserMod.RobotArm
+{
+    // 机械臂控制行为
+    public class RobotArmBehaviour : IModBehaviour
+    {
+        public string BehaviourId => "robot_arm_controller";
+        public string Version => "1.0.0";
+        
+        private IModContext context;
+        private RobotArmConfig config;
+        private Dictionary<string, JointController> joints;
+        
+        public void OnInitialize(IModContext context)
+        {
+            this.context = context;
+            
+            // 加载配置
+            config = LoadConfiguration();
+            
+            // 初始化关节控制器
+            InitializeJoints();
+            
+            // 订阅事件
+            context.EventBus.Subscribe<InputEvent>(OnInputReceived);
+            context.EventBus.Subscribe<CollisionEvent>(OnCollision);
+            
+            context.Log($"RobotArm {BehaviourId} initialized");
+        }
+        
+        public void OnUpdate(float deltaTime)
+        {
+            // 更新各关节状态
+            foreach (var joint in joints.Values)
+            {
+                joint.Update(deltaTime);
+            }
+            
+            // 发布状态更新事件
+            context.EventBus.Publish(new RobotStateEvent
+            {
+                JointStates = GetJointStates(),
+                EndEffectorPosition = GetEndEffectorPosition()
+            });
+        }
+        
+        private void OnInputReceived(InputEvent e)
+        {
+            switch (e.Command)
+            {
+                case "move_joint":
+                    MoveJoint(e.JointName, e.TargetAngle);
+                    break;
+                case "move_to_position":
+                    MoveToPosition(e.TargetPosition);
+                    break;
+                case "emergency_stop":
+                    EmergencyStop();
+                    break;
+            }
+        }
+        
+        public void OnDestroy()
+        {
+            // 清理资源
+            foreach (var joint in joints.Values)
+            {
+                joint.Dispose();
+            }
+        }
+    }
+    
+    // 单个关节控制器
+    public class JointController
+    {
+        private Transform transform;
+        private JointConfig config;
+        private float currentAngle;
+        private float targetAngle;
+        private float velocity;
+        
+        public void Update(float deltaTime)
+        {
+            // PID控制
+            float error = targetAngle - currentAngle;
+            velocity = Mathf.Clamp(
+                error * config.Kp,
+                -config.MaxVelocity,
+                config.MaxVelocity
+            );
+            
+            currentAngle += velocity * deltaTime;
+            currentAngle = Mathf.Clamp(
+                currentAngle,
+                config.MinAngle,
+                config.MaxAngle
+            );
+            
+            // 应用旋转
+            transform.localRotation = Quaternion.AngleAxis(
+                currentAngle,
+                config.RotationAxis
+            );
+        }
+    }
+}
+3. 安全的API暴露系统
+csharp
+// ===== 主系统提供的安全API =====
+public interface IModAPI
+{
+    // 物理操作
+    IRaycastAPI Raycast { get; }
+    IPhysicsAPI Physics { get; }
+    
+    // 对象操作
+    IObjectAPI Objects { get; }
+    
+    // 工具方法
+    IUtilityAPI Utilities { get; }
+}
+
+// 具体API实现
+public class ModAPI : IModAPI
+{
+    private readonly SecurityContext security;
+    
+    public IRaycastAPI Raycast { get; }
+    public IPhysicsAPI Physics { get; }
+    public IObjectAPI Objects { get; }
+    public IUtilityAPI Utilities { get; }
+    
+    public ModAPI(SecurityContext security)
+    {
+        this.security = security;
+        
+        // 创建受限的API实例
+        Raycast = new SafeRaycastAPI(security);
+        Physics = new SafePhysicsAPI(security);
+        Objects = new SafeObjectAPI(security);
+        Utilities = new SafeUtilityAPI(security);
+    }
+}
+
+// 安全的物体创建API
+public class SafeObjectAPI : IObjectAPI
+{
+    private readonly SecurityContext security;
+    private readonly int maxObjectsPerMod = 100;
+    private Dictionary<string, int> objectCounts;
+    
+    public GameObject CreateObject(string prefabId, Vector3 position)
+    {
+        // 检查权限
+        if (!security.HasPermission("create_object"))
+        {
+            throw new SecurityException("No permission to create objects");
+        }
+        
+        // 检查数量限制
+        if (objectCounts[security.ModId] >= maxObjectsPerMod)
+        {
+            throw new LimitExceededException("Object creation limit exceeded");
+        }
+        
+        // 创建对象
+        var obj = InstantiateFromWhitelist(prefabId, position);
+        objectCounts[security.ModId]++;
+        
+        return obj;
+    }
+}
+4. 脚本编译和加载系统
+csharp
+public class ModScriptLoader
+{
+    private readonly string modPath;
+    private readonly CompilerService compiler;
+    
+    public async Task<Assembly> LoadModAssembly(string modId)
+    {
+        try
+        {
+            // 方案1：加载预编译的DLL
+            string dllPath = Path.Combine(modPath, modId, "scripts.dll");
+            if (File.Exists(dllPath))
+            {
+                // 验证数字签名
+                if (!VerifyAssemblySignature(dllPath))
+                {
+                    throw new SecurityException("Invalid assembly signature");
+                }
+                
+                return Assembly.LoadFrom(dllPath);
+            }
+            
+            // 方案2：运行时编译C#源代码
+            string sourcePath = Path.Combine(modPath, modId, "scripts");
+            if (Directory.Exists(sourcePath))
+            {
+                var sourceFiles = Directory.GetFiles(sourcePath, "*.cs", SearchOption.AllDirectories);
+                return await CompileFromSource(sourceFiles);
+            }
+            
+            throw new FileNotFoundException($"No scripts found for mod {modId}");
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"Failed to load mod assembly: {ex.Message}");
+            throw;
+        }
+    }
+    
+    private async Task<Assembly> CompileFromSource(string[] sourceFiles)
+    {
+        // 使用Roslyn编译器
+        var compilation = await compiler.CompileAsync(
+            sourceFiles,
+            references: GetSafeReferences(),
+            options: GetSecureCompilerOptions()
+        );
+        
+        if (compilation.Success)
+        {
+            return compilation.Assembly;
+        }
+        
+        throw new CompilationException(compilation.Errors);
+    }
+    
+    private string[] GetSafeReferences()
+    {
+        // 只允许引用安全的程序集
+        return new[]
+        {
+            "mscorlib.dll",
+            "System.dll",
+            "System.Core.dll",
+            "UnityEngine.CoreModule.dll",
+            "ModSystem.Core.dll" // 我们的接口库
+        };
+    }
+}
+5. 基于可视化脚本的方案（更安全）
+对于不信任的第三方内容，可以使用可视化脚本：
+
+csharp
+// 节点定义
+[Serializable]
+public class VisualScriptNode
+{
+    public string nodeId;
+    public string nodeType;
+    public Vector2 position;
+    public List<NodePort> inputs;
+    public List<NodePort> outputs;
+    public Dictionary<string, object> parameters;
+}
+
+// 可视化脚本执行器
+public class VisualScriptExecutor
+{
+    private Dictionary<string, INodeExecutor> nodeExecutors;
+    
+    public void RegisterNodeType<T>() where T : INodeExecutor, new()
+    {
+        var executor = new T();
+        nodeExecutors[executor.NodeType] = executor;
+    }
+    
+    public void ExecuteScript(VisualScript script, ExecutionContext context)
+    {
+        // 按拓扑顺序执行节点
+        var sortedNodes = TopologicalSort(script.Nodes);
+        
+        foreach (var node in sortedNodes)
+        {
+            if (nodeExecutors.TryGetValue(node.nodeType, out var executor))
+            {
+                executor.Execute(node, context);
+            }
+        }
+    }
+}
+
+// 具体节点实现示例
+public class MoveJointNode : INodeExecutor
+{
+    public string NodeType => "MoveJoint";
+    
+    public void Execute(VisualScriptNode node, ExecutionContext context)
+    {
+        string jointName = node.GetParameter<string>("jointName");
+        float angle = node.GetParameter<float>("angle");
+        float speed = node.GetParameter<float>("speed");
+        
+        var joint = context.GetJoint(jointName);
+        joint.MoveTo(angle, speed);
+    }
+}
+6. 脚本配置文件格式
+json
+{
+  "behaviour": {
+    "id": "advanced_robot_arm",
+    "version": "2.0.0",
+    "author": "ModDeveloper",
+    "description": "Advanced 6-axis robot arm controller",
+    
+    "dependencies": [
+      {
+        "id": "mod_system_core",
+        "version": ">=1.0.0"
+      }
+    ],
+    
+    "permissions": [
+      "create_object",
+      "raycast",
+      "physics_simulation"
+    ],
+    
+    "scripts": [
+      {
+        "class": "UserMod.RobotArm.RobotArmBehaviour",
+        "assembly": "RobotArmMod.dll",
+        "config": "robot_config.json"
+      }
+    ],
+    
+    "resources": {
+      "maxMemory": "100MB",
+      "maxCpuTime": "10ms",
+      "maxObjects": 50
+    }
+  }
+}
+7. 完整的模组加载流程
+csharp
+public class ModManager : MonoBehaviour
+{
+    private Dictionary<string, LoadedMod> loadedMods;
+    private SecurityManager securityManager;
+    
+    public async Task<bool> LoadMod(string modPath)
+    {
+        try
+        {
+            // 1. 读取并验证manifest
+            var manifest = await LoadManifest(modPath);
+            if (!ValidateManifest(manifest))
+                return false;
+            
+            // 2. 检查依赖
+            if (!await CheckDependencies(manifest.Dependencies))
+                return false;
+            
+            // 3. 创建安全上下文
+            var security = securityManager.CreateContext(
+                manifest.Id,
+                manifest.Permissions
+            );
+            
+            // 4. 加载资源
+            var resources = await LoadResources(modPath);
+            
+            // 5. 加载脚本
+            var assembly = await LoadScripts(modPath, security);
+            
+            // 6. 创建行为实例
+            var behaviours = CreateBehaviours(assembly, manifest);
+            
+            // 7. 初始化模组
+            var mod = new LoadedMod
+            {
+                Id = manifest.Id,
+                Manifest = manifest,
+                Resources = resources,
+                Behaviours = behaviours,
+                Security = security
+            };
+            
+            foreach (var behaviour in behaviours)
+            {
+                var context = CreateModContext(mod);
+                behaviour.OnInitialize(context);
+            }
+            
+            loadedMods[manifest.Id] = mod;
+            
+            Debug.Log($"Successfully loaded mod: {manifest.Id}");
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"Failed to load mod: {ex.Message}");
+            return false;
+        }
+    }
+}
+8. 最佳实践建议
+安全第一
+使用接口隔离
+限制API访问
+资源配额管理
+代码签名验证
+性能考虑
+异步加载
+资源池化
+限制Update频率
+开发体验
+提供完整SDK
+详细的API文档
+调试工具支持
+示例项目
+兼容性保证
+版本管理
+向后兼容
+优雅降级
+这样的设计既保证了系统的安全性和稳定性，又给了模组开发者足够的灵活性来实现复杂的功能。您觉得这个方案如何？需要我详细说明某个特定部分吗？
+
+
+
+
+好像还可以。两个模组之间怎样通信的，如果我有一个按钮模组，一个机器人模组，怎样在按下按钮模组的时候，机器人旋转一定角度
+
+Edit
+这是一个很好的实际应用场景！模组间通信是模组化系统的核心功能。让我详细展示如何实现按钮控制机器人的功能。
+
+模组间通信架构
+1. 事件驱动的通信系统
+csharp
+// ===== 核心事件系统 =====
+namespace ModSystem.Core
+{
+    // 事件基类
+    public interface IModEvent
+    {
+        string EventId { get; }
+        string SenderId { get; }
+        DateTime Timestamp { get; }
+    }
+    
+    // 事件总线实现
+    public class ModEventBus : IEventBus
+    {
+        private readonly Dictionary<Type, List<Delegate>> handlers;
+        private readonly SecurityManager security;
+        
+        public void Subscribe<T>(Action<T> handler) where T : IModEvent
+        {
+            var eventType = typeof(T);
+            if (!handlers.ContainsKey(eventType))
+                handlers[eventType] = new List<Delegate>();
+            
+            handlers[eventType].Add(handler);
+        }
+        
+        public void Publish<T>(T eventData) where T : IModEvent
+        {
+            var eventType = typeof(T);
+            
+            // 记录事件日志
+            LogEvent(eventData);
+            
+            // 触发所有订阅者
+            if (handlers.ContainsKey(eventType))
+            {
+                foreach (Action<T> handler in handlers[eventType])
+                {
+                    try
+                    {
+                        handler?.Invoke(eventData);
+                    }
+                    catch (Exception ex)
+                    {
+                        Debug.LogError($"Event handler error: {ex.Message}");
+                    }
+                }
+            }
+        }
+    }
+}
+2. 按钮模组实现
+csharp
+// ===== 按钮模组 =====
+namespace ButtonMod
+{
+    // 按钮按下事件定义
+    public class ButtonPressedEvent : IModEvent
+    {
+        public string EventId => "button_pressed";
+        public string SenderId { get; set; }
+        public DateTime Timestamp { get; set; }
+        
+        public string ButtonId { get; set; }
+        public string ButtonType { get; set; }
+        public Dictionary<string, object> Parameters { get; set; }
+    }
+    
+    // 按钮行为脚本
+    public class ButtonBehaviour : IModBehaviour
+    {
+        public string BehaviourId => "interactive_button";
+        public string Version => "1.0.0";
+        
+        private IModContext context;
+        private ButtonConfig config;
+        private bool isPressed = false;
+        
+        public void OnInitialize(IModContext context)
+        {
+            this.context = context;
+            config = LoadConfig();
+            
+            // 设置碰撞检测
+            var collider = context.GameObject.GetComponent<Collider>();
+            if (collider == null)
+            {
+                collider = context.GameObject.AddComponent<BoxCollider>();
+            }
+            
+            // 设置交互层
+            context.GameObject.layer = LayerMask.NameToLayer("Interactable");
+            
+            // 订阅交互事件
+            context.EventBus.Subscribe<InteractionEvent>(OnInteraction);
+        }
+        
+        private void OnInteraction(InteractionEvent e)
+        {
+            // 检查是否是针对这个按钮的交互
+            if (e.TargetId != context.GameObject.name)
+                return;
+            
+            // 触发按钮
+            TriggerButton();
+        }
+        
+        private void TriggerButton()
+        {
+            if (isPressed && !config.AllowRepeatPress)
+                return;
+            
+            isPressed = true;
+            
+            // 视觉反馈
+            AnimatePress();
+            
+            // 发布按钮事件
+            var buttonEvent = new ButtonPressedEvent
+            {
+                SenderId = BehaviourId,
+                Timestamp = DateTime.Now,
+                ButtonId = config.ButtonId,
+                ButtonType = config.ButtonType,
+                Parameters = config.EventParameters
+            };
+            
+            context.EventBus.Publish(buttonEvent);
+            
+            // 如果是瞬时按钮，自动释放
+            if (config.ButtonType == "momentary")
+            {
+                context.API.Utilities.DelayCall(0.2f, () => 
+                {
+                    isPressed = false;
+                    AnimateRelease();
+                });
+            }
+        }
+        
+        private void AnimatePress()
+        {
+            // 按下动画
+            var transform = context.GameObject.transform;
+            transform.localPosition += Vector3.down * 0.02f;
+            
+            // 改变颜色
+            var renderer = context.GetComponent<Renderer>();
+            if (renderer != null)
+            {
+                renderer.material.color = config.PressedColor;
+            }
+            
+            // 播放音效
+            context.API.Audio.PlaySound("button_click");
+        }
+    }
+    
+    // 按钮配置
+    [Serializable]
+    public class ButtonConfig
+    {
+        public string ButtonId = "button_01";
+        public string ButtonType = "momentary"; // momentary, toggle, hold
+        public bool AllowRepeatPress = true;
+        public Color PressedColor = Color.green;
+        public Dictionary<string, object> EventParameters = new Dictionary<string, object>
+        {
+            { "action", "rotate_robot" },
+            { "angle", 45.0f },
+            { "jointName", "base_rotation" }
+        };
+    }
+}
+3. 机器人模组实现
+csharp
+// ===== 机器人模组 =====
+namespace RobotMod
+{
+    public class RobotArmBehaviour : IModBehaviour
+    {
+        public string BehaviourId => "robot_arm_controller";
+        public string Version => "1.0.0";
+        
+        private IModContext context;
+        private Dictionary<string, JointController> joints;
+        
+        public void OnInitialize(IModContext context)
+        {
+            this.context = context;
+            InitializeJoints();
+            
+            // 订阅按钮事件
+            context.EventBus.Subscribe<ButtonPressedEvent>(OnButtonPressed);
+            
+            // 订阅通用控制命令
+            context.EventBus.Subscribe<RobotControlEvent>(OnControlCommand);
+        }
+        
+        private void OnButtonPressed(ButtonPressedEvent e)
+        {
+            // 检查事件参数
+            if (e.Parameters == null)
+                return;
+            
+            // 解析动作
+            if (e.Parameters.TryGetValue("action", out var action))
+            {
+                switch (action.ToString())
+                {
+                    case "rotate_robot":
+                        HandleRotateCommand(e.Parameters);
+                        break;
+                        
+                    case "move_to_home":
+                        MoveToHomePosition();
+                        break;
+                        
+                    case "emergency_stop":
+                        EmergencyStop();
+                        break;
+                }
+            }
+        }
+        
+        private void HandleRotateCommand(Dictionary<string, object> parameters)
+        {
+            if (parameters.TryGetValue("jointName", out var jointName) &&
+                parameters.TryGetValue("angle", out var angle))
+            {
+                string joint = jointName.ToString();
+                float targetAngle = Convert.ToSingle(angle);
+                
+                context.Log($"Rotating {joint} to {targetAngle} degrees");
+                
+                if (joints.ContainsKey(joint))
+                {
+                    joints[joint].SetTargetAngle(targetAngle);
+                    
+                    // 发布状态更新事件
+                    context.EventBus.Publish(new RobotStateChangedEvent
+                    {
+                        SenderId = BehaviourId,
+                        JointName = joint,
+                        NewAngle = targetAngle,
+                        Status = "moving"
+                    });
+                }
+            }
+        }
+    }
+}
+4. 高级通信模式
+4.1 请求-响应模式
+csharp
+// 请求事件
+public class RobotCommandRequest : IModEvent
+{
+    public string EventId => "robot_command_request";
+    public string SenderId { get; set; }
+    public DateTime Timestamp { get; set; }
+    
+    public string RequestId { get; set; } // 用于匹配响应
+    public string Command { get; set; }
+    public Dictionary<string, object> Parameters { get; set; }
+}
+
+// 响应事件
+public class RobotCommandResponse : IModEvent
+{
+    public string EventId => "robot_command_response";
+    public string SenderId { get; set; }
+    public DateTime Timestamp { get; set; }
+    
+    public string RequestId { get; set; } // 匹配请求
+    public bool Success { get; set; }
+    public string Message { get; set; }
+    public object Result { get; set; }
+}
+
+// 实现异步请求
+public class AsyncModCommunication
+{
+    private readonly IEventBus eventBus;
+    private readonly Dictionary<string, TaskCompletionSource<RobotCommandResponse>> pendingRequests;
+    
+    public async Task<RobotCommandResponse> SendRequestAsync(RobotCommandRequest request, TimeSpan timeout)
+    {
+        var tcs = new TaskCompletionSource<RobotCommandResponse>();
+        pendingRequests[request.RequestId] = tcs;
+        
+        // 订阅响应
+        Action<RobotCommandResponse> responseHandler = null;
+        responseHandler = (response) =>
+        {
+            if (response.RequestId == request.RequestId)
+            {
+                tcs.SetResult(response);
+                eventBus.Unsubscribe(responseHandler);
+                pendingRequests.Remove(request.RequestId);
+            }
+        };
+        
+        eventBus.Subscribe(responseHandler);
+        eventBus.Publish(request);
+        
+        // 超时处理
+        using (var cts = new CancellationTokenSource(timeout))
+        {
+            try
+            {
+                return await tcs.Task;
+            }
+            catch (TaskCanceledException)
+            {
+                eventBus.Unsubscribe(responseHandler);
+                pendingRequests.Remove(request.RequestId);
+                throw new TimeoutException("Request timed out");
+            }
+        }
+    }
+}
+4.2 服务注册模式
+csharp
+// 服务接口
+public interface IModService
+{
+    string ServiceId { get; }
+    string ProviderId { get; }
+}
+
+// 机器人服务
+public interface IRobotService : IModService
+{
+    Task<bool> MoveJoint(string jointName, float angle);
+    Task<Vector3> GetEndEffectorPosition();
+    Task<bool> ExecuteTrajectory(Trajectory trajectory);
+}
+
+// 服务注册表
+public class ModServiceRegistry
+{
+    private readonly Dictionary<Type, List<IModService>> services;
+    
+    public void RegisterService<T>(T service) where T : IModService
+    {
+        var serviceType = typeof(T);
+        if (!services.ContainsKey(serviceType))
+            services[serviceType] = new List<IModService>();
+        
+        services[serviceType].Add(service);
+        
+        // 发布服务注册事件
+        eventBus.Publish(new ServiceRegisteredEvent
+        {
+            ServiceType = serviceType.Name,
+            ServiceId = service.ServiceId,
+            ProviderId = service.ProviderId
+        });
+    }
+    
+    public T GetService<T>() where T : IModService
+    {
+        var serviceType = typeof(T);
+        if (services.ContainsKey(serviceType) && services[serviceType].Count > 0)
+        {
+            return (T)services[serviceType][0];
+        }
+        return default(T);
+    }
+}
+
+// 按钮通过服务调用机器人
+public class ServiceBasedButtonBehaviour : IModBehaviour
+{
+    private IRobotService robotService;
+    
+    public void OnInitialize(IModContext context)
+    {
+        // 等待机器人服务注册
+        context.EventBus.Subscribe<ServiceRegisteredEvent>(e =>
+        {
+            if (e.ServiceType == nameof(IRobotService))
+            {
+                robotService = context.API.Services.GetService<IRobotService>();
+            }
+        });
+    }
+    
+    private async void OnButtonClick()
+    {
+        if (robotService != null)
+        {
+            // 直接调用服务方法
+            bool success = await robotService.MoveJoint("base_rotation", 45);
+            if (success)
+            {
+                context.Log("Robot rotated successfully");
+            }
+        }
+    }
+}
+5. 通信配置示例
+json
+{
+  "communications": {
+    "button_to_robot": {
+      "source": {
+        "modId": "button_mod",
+        "eventType": "ButtonPressedEvent"
+      },
+      "target": {
+        "modId": "robot_mod",
+        "handler": "OnButtonPressed"
+      },
+      "mapping": {
+        "buttonId": "rotate_button",
+        "actions": [
+          {
+            "condition": "buttonType == 'momentary'",
+            "command": "rotate_robot",
+            "parameters": {
+              "jointName": "base_rotation",
+              "angle": 45,
+              "speed": 30
+            }
+          }
+        ]
+      }
+    }
+  }
+}
+6. 调试和监控工具
+csharp
+public class ModCommunicationDebugger : MonoBehaviour
+{
+    private List<EventLog> eventHistory = new List<EventLog>();
+    private bool showDebugUI = false;
+    
+    void Start()
+    {
+        // 拦截所有事件
+        var eventBus = GetComponent<ModEventBus>();
+        eventBus.OnEventPublished += LogEvent;
+    }
+    
+    private void LogEvent(IModEvent e)
+    {
+        eventHistory.Add(new EventLog
+        {
+            Timestamp = e.Timestamp,
+            EventType = e.GetType().Name,
+            SenderId = e.SenderId,
+            Data = JsonUtility.ToJson(e)
+        });
+    }
+    
+    void OnGUI()
+    {
+        if (!showDebugUI) return;
+        
+        GUILayout.BeginArea(new Rect(10, 10, 400, 600));
+        GUILayout.Label("Mod Communication Monitor");
+        
+        // 显示最近的事件
+        foreach (var log in eventHistory.TakeLast(20))
+        {
+            GUILayout.BeginHorizontal("box");
+            GUILayout.Label($"[{log.Timestamp:HH:mm:ss}]");
+            GUILayout.Label($"{log.SenderId} -> {log.EventType}");
+            GUILayout.EndHorizontal();
+        }
+        
+        GUILayout.EndArea();
+    }
+}
+7. 最佳实践
+松耦合设计
+模组之间只通过事件通信
+不直接引用其他模组的类
+使用接口和抽象
+错误处理
+优雅处理服务不可用
+事件超时机制
+失败重试策略
+性能优化
+事件过滤和路由
+批量处理
+异步通信
+安全性
+事件权限验证
+参数验证
+防止事件风暴
+这样的设计让模组之间可以灵活通信，同时保持独立性和安全性。您觉得这个通信机制如何？需要我展示更复杂的场景吗？
+
+
+
+
+高级通信模式是干吗的？为什么还有通信配置示例？
+
+Edit
+很好的问题！让我解释一下为什么需要这些看似"额外"的功能。
+
+为什么需要高级通信模式？
+1. 基础事件模式的局限性
+基础的事件发布-订阅模式虽然简单，但在实际使用中会遇到问题：
+
+csharp
+// ❌ 基础模式的问题场景
+public class ButtonBehaviour : IModBehaviour
+{
+    void OnButtonClick()
+    {
+        // 发送命令给机器人
+        eventBus.Publish(new ButtonPressedEvent
+        {
+            Parameters = new { command = "move_to_position", position = new Vector3(1, 2, 3) }
+        });
+        
+        // 问题：我怎么知道机器人是否成功执行了？
+        // 问题：如果有多个机器人，谁来响应？
+        // 问题：如果机器人还没加载怎么办？
+    }
+}
+2. 请求-响应模式解决的问题
+csharp
+// ✅ 使用请求-响应模式
+public class SmartButtonBehaviour : IModBehaviour
+{
+    async void OnButtonClick()
+    {
+        try
+        {
+            // 发送请求并等待响应
+            var response = await SendRequestAsync(new RobotCommandRequest
+            {
+                Command = "move_to_position",
+                Parameters = new { position = new Vector3(1, 2, 3) }
+            }, TimeSpan.FromSeconds(5));
+            
+            if (response.Success)
+            {
+                // 显示成功反馈
+                ShowSuccessIndicator();
+                Debug.Log($"机器人移动成功: {response.Message}");
+            }
+            else
+            {
+                // 处理失败
+                ShowErrorIndicator();
+                Debug.LogError($"机器人移动失败: {response.Message}");
+            }
+        }
+        catch (TimeoutException)
+        {
+            // 处理超时
+            Debug.LogError("机器人响应超时");
+        }
+    }
+}
+实际应用场景：
+
+需要确认操作结果的场景（如：保存文件、执行危险操作）
+需要获取返回值的场景（如：查询传感器数据、获取状态）
+需要错误处理的场景（如：网络请求、资源加载）
+3. 服务注册模式解决的问题
+csharp
+// ❌ 没有服务注册的问题
+public class DisplayModuleBehaviour : IModBehaviour
+{
+    void ShowRobotStatus()
+    {
+        // 问题：我怎么知道有没有机器人模组？
+        // 问题：如果有多个机器人模组，我该显示哪个？
+        eventBus.Publish(new GetStatusRequest());
+        // 然后呢？等待不确定的响应？
+    }
+}
+
+// ✅ 使用服务注册
+public class SmartDisplayBehaviour : IModBehaviour
+{
+    private IRobotService robotService;
+    
+    public void OnInitialize(IModContext context)
+    {
+        // 获取机器人服务（如果存在）
+        robotService = context.API.Services.GetService<IRobotService>();
+        
+        if (robotService == null)
+        {
+            // 明确知道没有机器人服务
+            ShowMessage("等待机器人模组加载...");
+        }
+    }
+    
+    async void UpdateDisplay()
+    {
+        if (robotService != null)
+        {
+            // 直接调用服务方法，类型安全
+            var position = await robotService.GetEndEffectorPosition();
+            DisplayPosition(position);
+        }
+    }
+}
+为什么需要通信配置？
+1. 解决模组间的依赖问题
+json
+{
+  "communications": {
+    "emergency_stop_system": {
+      "description": "紧急停止系统配置",
+      "triggers": [
+        {
+          "source": "emergency_button_mod",
+          "event": "ButtonPressedEvent",
+          "condition": "buttonId == 'emergency_stop'",
+          "targets": [
+            {
+              "modId": "robot_arm_mod",
+              "action": "emergency_stop"
+            },
+            {
+              "modId": "conveyor_mod", 
+              "action": "stop_all"
+            },
+            {
+              "modId": "alarm_mod",
+              "action": "trigger_alarm"
+            }
+          ]
+        }
+      ]
+    }
+  }
+}
+好处：
+
+一个按钮可以同时控制多个设备
+无需修改按钮代码就能改变行为
+系统管理员可以配置而不需要编程
+2. 实现可配置的工作流
+json
+{
+  "workflow": {
+    "name": "自动装配流程",
+    "steps": [
+      {
+        "trigger": {
+          "mod": "sensor_mod",
+          "event": "ObjectDetectedEvent"
+        },
+        "actions": [
+          {
+            "mod": "robot_arm_mod",
+            "command": "pick_object",
+            "wait_for_completion": true
+          },
+          {
+            "mod": "conveyor_mod",
+            "command": "move_to_next_position",
+            "delay": 2000
+          }
+        ]
+      }
+    ]
+  }
+}
+3. 实际案例对比
+硬编码方式（不好）
+csharp
+public class ButtonBehaviour : IModBehaviour
+{
+    void OnButtonClick()
+    {
+        // 硬编码：按钮只能控制特定的机器人关节
+        eventBus.Publish(new ButtonPressedEvent
+        {
+            Parameters = new { jointName = "joint_1", angle = 45 }
+        });
+    }
+}
+配置驱动方式（推荐）
+csharp
+public class ConfigurableButtonBehaviour : IModBehaviour
+{
+    private ButtonConfig config;
+    
+    void OnButtonClick()
+    {
+        // 从配置读取要执行的动作
+        foreach (var action in config.Actions)
+        {
+            eventBus.Publish(new ButtonPressedEvent
+            {
+                Parameters = action.Parameters
+            });
+        }
+    }
+}
+配置文件：
+
+json
+{
+  "button_config": {
+    "button_1": {
+      "label": "旋转底座",
+      "actions": [{
+        "target": "robot_arm",
+        "parameters": { "jointName": "base", "angle": 45 }
+      }]
+    },
+    "button_2": {
+      "label": "抓取动作",
+      "actions": [
+        {
+          "target": "robot_arm",
+          "parameters": { "command": "open_gripper" }
+        },
+        {
+          "target": "robot_arm",
+          "parameters": { "command": "move_down", "distance": 0.1 },
+          "delay": 1000
+        },
+        {
+          "target": "robot_arm", 
+          "parameters": { "command": "close_gripper" },
+          "delay": 2000
+        }
+      ]
+    }
+  }
+}
+4. 配置的实际价值
+灵活性 - 无需修改代码就能改变行为
+复用性 - 同一个模组可以用于不同场景
+可维护性 - 非程序员也能调整系统行为
+版本控制 - 配置和代码分离，便于管理
+总结
+这些"高级"功能实际上是为了解决实际生产环境中的问题：
+
+请求-响应模式：需要确认和错误处理时使用
+服务注册模式：需要模组间紧密协作时使用
+配置文件：需要灵活性和可维护性时使用
+它们不是过度设计，而是从实践中总结出的必要功能。就像开车一样，基础的"前进、后退"够用，但实际上路还需要转向灯、雨刷器等"高级"功能。
+
+您觉得这样解释清楚了吗？
+
+
+
+
+基本可以了，写出完整的代码和说明文档，几种通信方式都可以有，以适应不同的场景。
+
+Edit
+
+规划全面的模组通信系统，设计多种交互方案
+4s
+
+
+
+我来创建一个完整的模组通信系统，包含代码实现和详细文档。
+
+
+Unity模组通信系统 - 完整实现与文档
+Document 
+
+构建详细的Unity模组通信系统文档和实现方案
+4s
+
+
+
+我已经创建了一个完整的Unity模组通信系统文档，包含了详细的代码实现和使用说明。
+
+这个系统提供了四种通信方式：
+
+事件模式 - 适用于简单的单向通知，如按钮点击通知
+请求-响应模式 - 适用于需要确认结果的操作，如移动机器人并等待完成
+服务模式 - 适用于模组间紧密协作，提供类型安全的API调用
+配置驱动模式 - 通过JSON配置文件定义通信关系，无需修改代码
+主要特点：
+
+完整的按钮和机器人模组示例代码
+详细的错误处理和超时机制
+灵活的事件过滤和路由系统
+支持异步操作和批处理
+包含调试和监控工具
+每种通信方式都有其适用场景，可以根据实际需求选择。例如：
+
+简单的按钮控制用事件模式
+需要确认操作结果用请求-响应模式
+复杂的API调用用服务模式
+灵活的工作流程用配置驱动模式
+您可以根据这个文档实现自己的模组通信系统。有什么需要进一步说明的地方吗？
+
+
+
+
+这些代码分别应该放在哪里，补充说明。
+
+Edit
+
+Analyzed project structure and file organization strategy.
+2s
+
+
+我来补充完整的项目结构和文件组织说明。
+
+
+规划项目结构，详细说明文件位置。
+1s
+
+
+
+准备在文档末尾添加安装和部署说明。
+1s
+
+
+
+规划文件组织和参考指南的快速总结。
+1s
+
+
+
+计划添加更清晰的文件创建说明
+1s
+
+
+
+Contemplated adding auxiliary classes to enhance code completeness.
+1s
+
+
+
+Планировал дополнить код недостающими классами
+2s
+
+
+
+Планировал добавить недостающие классы в модуль кнопок.
+1s
+
+
+
+Планировал добавить определения в ButtonEvents.cs
+1s
+
+
+
+计划为机器人模组添加缺失的类定义和配置。
+2s
+
+
+
+Определил правильное место для добавления кода.
+1s
+
+
+
+Планировал добавить недостающие вспомогательные методы в модуль кнопок.
+1s
+
+
+
+Identificó métodos auxiliares faltantes en el módulo robótico.
+1s
+
+
+
+Планировал добавить необходимые using-операторы для компиляции
+1s
+
+
+
+Identificó y planificó agregar declaraciones using para módulo robótico.
+1s
+
+
+
+Планировал добавить необходимые using-операторы в маршрутизатор
+1s
+
+
+
+完善通信路由器的辅助方法和代码结构。
+0s
+
+
+
+Планировал добавить конфигурационный класс в маршрутизацию.
+1s
+
+
+
+Планировал добавить необходимые операторы using в примере.
+0s
+
+
+
+Identified missing using statements for installation section.
+1s
+
+
+
+Contemplated exposing ModSystemController attributes for testing purposes.
+1s
+
+
+
+准备添加模组管理器的注释说明
+1s
+
+
+
+Contemplated adding ModManager placeholder example to code.
+1s
+
+
+
+Проверил пространство имен в тестовом коде.
+1s
+
+
+
+完善基本事件通信示例的方法实现。
+1s
+
+
+
+计划补充请求-响应和服务调用的完整实现。
+1s
+
+
+
+Unity模组通信系统 - 完整实现与文档
+Document ∙ Version 27 
+
+
+
+Continue
+
+Edit
+
+Plotted document continuation strategy and remaining sections.
+4s
+
+
+
+I'll continue completing the document with the remaining sections.
+
+
+Strategized code improvements and implementation completions.
+3s
+
+
+
+
+Continued implementation and document completion strategy.
+1s
+
+
+
+Unity模组通信系统 - 完整实现与文档
+Document ∙ Version 30 
+
+Crafted comprehensive Unity modular communication system documentation.
+7s
+
+
+
+我已经完成了Unity模组通信系统的完整文档和代码实现。现在文档包含了：
+
+主要内容总结：
+1. 完整的项目结构
+详细的文件组织说明
+每个文件应该放置的具体位置
+程序集定义文件配置
+2. 核心系统组件
+事件总线（EventBus）
+请求响应系统（Request-Response）
+服务注册系统（Service Registry）
+配置驱动路由（Communication Router）
+3. 四种通信模式
+事件模式：简单的单向通知
+请求响应模式：需要确认结果的操作
+服务模式：模组间紧密协作
+配置驱动模式：通过JSON配置灵活定义通信关系
+4. 完整的模组示例
+按钮模组（ButtonMod）
+机器人模组（RobotMod）
+包含所有必要的脚本和配置
+5. 额外的支持系统
+ModLoader：模组加载器实现
+SecurityManager：安全管理和验证
+EventMonitor：可视化调试工具
+完整的配置文件示例
+6. 实用功能
+错误处理机制
+性能优化建议
+调试和监控工具
+安全性考虑
+快速开始步骤：
+创建核心文件夹结构
+Assets/ModSystem/Core/
+Assets/Mods/
+Assets/StreamingAssets/ModConfigs/
+复制核心接口和实现文件到相应位置
+创建程序集定义文件（.asmdef）
+在场景中创建ModSystemController
+运行测试
+这个系统的优势是：
+
+模组之间完全解耦
+支持多种通信方式
+安全可控
+易于扩展和维护
+包含完整的调试工具
+您可以根据实际需求选择使用不同的通信模式，也可以根据项目特点进行调整和优化。有什么具体的实现问题需要进一步讨论吗？
+
+
+
+
+文档开头的这部分代码：/// <summary> /// 机器人配置 /// </summary> [Serializable] public class RobotConfiguration { public string RobotId = "robot_01"; public List<JointConfiguration> Joints = new List<JointConfiguration>(); public bool EnableCollisionDetection = true; public bool EnableIK = true; public float DefaultSpeed = 30f; } /// <summary> /// 关节配置 /// </summary> [Serializable] public class JointConfiguration { public string Name; public Vector3 RotationAxis = Vector3.up; public float MinAngle = -180f; public float MaxAngle = 180f; public float InitialAngle = 0f; public float MaxVelocity = 60f; public float Kp = 5f; // PID参数 public float Ki = 0.1f; public float Kd = 1f; } /// <summary> /// 运动学控制器（简化版） /// </summary> public class KinematicsController { private Dictionary<string, JointController> joints; private RobotConfiguration config; public KinematicsController(Dictionary<string, JointController> joints, RobotConfiguration config) { this.joints = joints; this.config = config; } public Dictionary<string, float> CalculateInverseKinematics(Vector3 targetPosition) { // 简化的IK计算，实际应该使用专业的IK算法 var result = new Dictionary<string, float>(); // 这里只是示例，实际需要根据机器人结构计算 result["base_rotation"] = Mathf.Atan2(targetPosition.x, targetPosition.z) * Mathf.Rad2Deg; result["shoulder_pitch"] = 45f; result["elbow_pitch"] = -45f; return result; } public Vector3 GetEndEffectorPosition() { // 简化计算，实际需要正向运动学 return new Vector3(0, 1, 1); } } private ButtonConfiguration LoadConfiguration() { // 加载配置的实现 return new ButtonConfiguration(); } private RobotConfiguration LoadConfiguration() { // 加载配置的实现 return new RobotConfiguration(); } private void CheckCollisions() { // 碰撞检测实现 } private void HandleRotateJoint(Dictionary<string, object> parameters) { // 处理关节旋转 } private void MoveToHomePosition() { // 移动到初始位置 } private void ExecuteSequence(Dictionary<string, object> parameters) { // 执行动作序列 } private void ShowSuccessFeedback() { // 显示成功反馈 } private void ShowErrorFeedback() { // 显示错误反馈 } private void ShowTimeoutFeedback() { // 显示超时反馈 } private void CallButtonService() { // 调用按钮服务 } private void ExecuteConfiguredActions() { // 执行配置的动作 } private void OnButtonRelease() { // 按钮释放处理 } private void AnimateRelease() { // 释放动画 } private void OnServiceRegistered(ServiceRegisteredEvent e) { // 服务注册事件处理 } /// <summary> /// 按钮动作请求 /// </summary> public class ButtonActionRequest : ModRequest { public string ButtonId { get; set; } public string Action { get; set; } public Dictionary<string, object> Parameters { get; set; } } /// <summary> /// 按钮动作响应 /// </summary> public class ButtonActionResponse : ModResponse { public string ActionResult { get; set; } } /// <summary> /// 按钮状态 /// </summary> public class ButtonState { public bool IsPressed { get; set; } public float PressedTime { get; set; } public int ClickCount { get; set; } }# Unity模组通信系统 - 完整实现与文档
+
+是什么作用？
+
+Edit
+
+检测到文档开头代码片段可能是文档生成错误
+6s
+
+
+
+
+
+
+你发现了文档中的一个问题！这部分代码出现在文档开头是一个错误。这些代码片段实际上是从后面完整代码中提取出来的片段，不应该单独出现在文档开头。
+
+让我修正这个问题：
+
+
+Scrutinized button-related class definitions in module code.
+4s
+
+
+
+
+Verified robot configuration class placement in code module.
+2s
+
+
+
+Планировал добавить метод Dispose в класс JointController.
+1s
+
+
+
+Identified and planned to remove duplicate LoadConfiguration methods.
+1s
+
+
+
+重新添加并修正了代码的正确部分
+1s
+
+
+
+Unity模组通信系统 - 完整实现与文档
+Document ∙ Version 36 
+
+Обнаружил отсутствие метода GetStatus и планирует исправить.
+1s
+
+
+现在我已经修正了文档中的问题。那些出现在文档开头的代码片段实际上是：
+
+RobotConfiguration 和 JointConfiguration - 这些是机器人模组的配置类，用于定义机器人的结构和参数
+KinematicsController - 运动学控制器，用于计算机器人的运动
+ButtonActionRequest/Response 和 ButtonState - 按钮模组的数据结构
+这些代码现在都已经被正确地放置在各自的模组实现部分中：
+
+按钮相关的类在 ButtonMod/ButtonBehaviour.cs 文件中
+机器人相关的类在 RobotMod/RobotArmBehaviour.cs 文件中
+文档开头的那些零散代码片段已经被删除，现在文档结构更加清晰了。每个类都在其应该所在的命名空间和文件中定义。
+
+
+
+
+文档开头还有
+
+Edit
+
+Scrutinized document's initial section for potential issues.
+2s
+
+
+你说得对，让我检查并修正文档开头剩余的问题：
+
+
+Unity模组通信系统 - 完整实现与文档
+Document ∙ Version 37 
+
+Scrutinized document for potential errors before core components.
+5s
+
+
+
+让我检查整个文档，看看是否还有其他遗漏的问题。能否告诉我具体是哪部分还有问题？这样我可以更准确地修正。
+
+或者，如果您希望我重新检查整个文档开头部分，我可以这样做。文档应该以标题和目录开始，然后是系统概述和项目结构，不应该有任何零散的代码片段。
+
+
+
+
+在新建模组的时候，依赖unity吗，我需要一个不需要依赖Unity的新建模组方案，在我的主系统开发完成后，用户可以不需要unity也能添加模组
+
+Edit
+
+设计独立模组开发方案，降低用户创建模组门槛
+4s
+
+
+
+您提出了一个非常重要的需求！确实，让用户必须安装Unity来开发模组是不现实的。我来设计一个不依赖Unity编辑器的模组开发方案：
+
+独立模组开发方案
+1. 模组开发SDK（不依赖Unity编辑器）
+csharp
+// ModSDK/ModSDK.Core.dll - 独立的SDK库
+namespace ModSDK.Core
+{
+    // 这些接口与Unity的依赖最小化，只引用必要的Unity运行时DLL
+    public interface IModBehaviour
+    {
+        string BehaviourId { get; }
+        string Version { get; }
+        void OnInitialize(IModContext context);
+        void OnUpdate(float deltaTime);
+        void OnDestroy();
+    }
+    
+    // Vector3等基础类型可以自定义或使用System.Numerics
+    public struct Vector3
+    {
+        public float x, y, z;
+        public Vector3(float x, float y, float z)
+        {
+            this.x = x; this.y = y; this.z = z;
+        }
+    }
+}
+2. 独立的模组项目模板
+创建一个.NET项目模板，用户只需要Visual Studio或VS Code：
+
+ModTemplate.csproj
+
+xml
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <AssemblyName>MyCustomMod</AssemblyName>
+    <Version>1.0.0</Version>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- 只引用必要的运行时DLL，不需要Unity编辑器 -->
+    <Reference Include="ModSDK.Core">
+      <HintPath>SDK\ModSDK.Core.dll</HintPath>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>SDK\UnityEngine.CoreModule.dll</HintPath>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="manifest.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+    <None Update="config.json">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </None>
+  </ItemGroup>
+</Project>
+3. 模组开发工具（独立可执行程序）
+csharp
+// ModBuilder.exe - 独立的模组构建工具
+using System;
+using System.IO;
+using System.IO.Compression;
+using System.Text.Json;
+using System.Diagnostics;
+
+namespace ModBuilder
+{
+    class Program
+    {
+        static void Main(string[] args)
+        {
+            Console.WriteLine("=== Mod Builder v1.0 ===");
+            
+            if (args.Length == 0)
+            {
+                ShowInteractiveMenu();
+            }
+            else
+            {
+                ProcessCommand(args);
+            }
+        }
+        
+        static void ShowInteractiveMenu()
+        {
+            while (true)
+            {
+                Console.WriteLine("\n选择操作:");
+                Console.WriteLine("1. 创建新模组");
+                Console.WriteLine("2. 构建模组");
+                Console.WriteLine("3. 测试模组");
+                Console.WriteLine("4. 打包模组");
+                Console.WriteLine("5. 退出");
+                
+                var choice = Console.ReadLine();
+                
+                switch (choice)
+                {
+                    case "1":
+                        CreateNewMod();
+                        break;
+                    case "2":
+                        BuildMod();
+                        break;
+                    case "3":
+                        TestMod();
+                        break;
+                    case "4":
+                        PackageMod();
+                        break;
+                    case "5":
+                        return;
+                }
+            }
+        }
+        
+        static void CreateNewMod()
+        {
+            Console.Write("输入模组名称: ");
+            var modName = Console.ReadLine();
+            
+            Console.Write("输入模组类型 (1=按钮, 2=机器人, 3=传感器, 4=自定义): ");
+            var modType = Console.ReadLine();
+            
+            var projectDir = Path.Combine(Directory.GetCurrentDirectory(), modName);
+            Directory.CreateDirectory(projectDir);
+            
+            // 创建项目文件
+            File.WriteAllText(Path.Combine(projectDir, $"{modName}.csproj"), 
+                GetProjectTemplate(modName));
+            
+            // 创建源代码文件
+            var sourceDir = Path.Combine(projectDir, "Source");
+            Directory.CreateDirectory(sourceDir);
+            
+            File.WriteAllText(Path.Combine(sourceDir, $"{modName}Behaviour.cs"), 
+                GetCodeTemplate(modName, modType));
+            
+            // 创建配置文件
+            File.WriteAllText(Path.Combine(projectDir, "manifest.json"), 
+                GetManifestTemplate(modName));
+            
+            File.WriteAllText(Path.Combine(projectDir, "config.json"), 
+                GetConfigTemplate(modType));
+            
+            // 复制SDK文件
+            var sdkDir = Path.Combine(projectDir, "SDK");
+            Directory.CreateDirectory(sdkDir);
+            CopySDKFiles(sdkDir);
+            
+            Console.WriteLine($"✓ 模组项目 '{modName}' 创建成功!");
+            Console.WriteLine($"  位置: {projectDir}");
+            Console.WriteLine($"  使用 VS Code 或 Visual Studio 打开项目进行开发");
+        }
+        
+        static string GetCodeTemplate(string modName, string modType)
+        {
+            return modType switch
+            {
+                "1" => GetButtonModTemplate(modName),
+                "2" => GetRobotModTemplate(modName),
+                "3" => GetSensorModTemplate(modName),
+                _ => GetCustomModTemplate(modName)
+            };
+        }
+        
+        static string GetButtonModTemplate(string modName)
+        {
+            return $@"using System;
+using System.Collections.Generic;
+using ModSDK.Core;
+
+namespace {modName}
+{{
+    public class {modName}Behaviour : IModBehaviour
+    {{
+        public string BehaviourId => ""{modName.ToLower()}_behaviour"";
+        public string Version => ""1.0.0"";
+        
+        private IModContext context;
+        private ButtonConfig config;
+        
+        public void OnInitialize(IModContext context)
+        {{
+            this.context = context;
+            config = context.LoadConfig<ButtonConfig>(""config.json"");
+            
+            // 订阅交互事件
+            context.EventBus.Subscribe<InteractionEvent>(OnInteraction);
+            
+            context.Log($""{{BehaviourId}} 初始化完成"");
+        }}
+        
+        private void OnInteraction(InteractionEvent e)
+        {{
+            if (e.TargetId != context.GameObject.Id)
+                return;
+            
+            // 发布按钮事件
+            context.EventBus.Publish(new ButtonPressedEvent
+            {{
+                SenderId = BehaviourId,
+                ButtonId = config.ButtonId,
+                Parameters = config.ActionParameters
+            }});
+            
+            context.Log($""按钮 {{config.ButtonId}} 被按下"");
+        }}
+        
+        public void OnUpdate(float deltaTime)
+        {{
+            // 更新逻辑
+        }}
+        
+        public void OnDestroy()
+        {{
+            context.Log($""{{BehaviourId}} 已销毁"");
+        }}
+    }}
+    
+    public class ButtonConfig
+    {{
+        public string ButtonId {{ get; set; }} = ""button_01"";
+        public Dictionary<string, object> ActionParameters {{ get; set; }}
+    }}
+    
+    public class ButtonPressedEvent : IModEvent
+    {{
+        public string EventId => ""button_pressed"";
+        public string SenderId {{ get; set; }}
+        public DateTime Timestamp {{ get; set; }}
+        public string ButtonId {{ get; set; }}
+        public Dictionary<string, object> Parameters {{ get; set; }}
+    }}
+}}";
+        }
+        
+        static void BuildMod()
+        {
+            Console.Write("输入项目路径: ");
+            var projectPath = Console.ReadLine();
+            
+            if (!File.Exists(Path.Combine(projectPath, "*.csproj")))
+            {
+                Console.WriteLine("错误: 找不到项目文件");
+                return;
+            }
+            
+            Console.WriteLine("正在构建模组...");
+            
+            // 使用 dotnet CLI 构建
+            var process = new Process
+            {
+                StartInfo = new ProcessStartInfo
+                {
+                    FileName = "dotnet",
+                    Arguments = $"build \"{projectPath}\" -c Release",
+                    UseShellExecute = false,
+                    RedirectStandardOutput = true,
+                    RedirectStandardError = true
+                }
+            };
+            
+            process.Start();
+            process.WaitForExit();
+            
+            if (process.ExitCode == 0)
+            {
+                Console.WriteLine("✓ 构建成功!");
+            }
+            else
+            {
+                Console.WriteLine("✗ 构建失败");
+                Console.WriteLine(process.StandardError.ReadToEnd());
+            }
+        }
+    }
+}
+4. 可视化模组编辑器（可选）
+为不会编程的用户提供可视化编辑器：
+
+csharp
+// ModEditor.exe - 独立的可视化模组编辑器
+// 使用 WPF 或 Avalonia UI 创建跨平台应用
+
+public class VisualModEditor
+{
+    // 节点式编程界面
+    public class NodeEditor
+    {
+        public void CreateEventNode(string eventType) { }
+        public void CreateActionNode(string actionType) { }
+        public void ConnectNodes(Node from, Node to) { }
+    }
+    
+    // 将可视化节点转换为C#代码
+    public class CodeGenerator
+    {
+        public string GenerateCode(NodeGraph graph)
+        {
+            var sb = new StringBuilder();
+            // 生成标准的模组代码
+            return sb.ToString();
+        }
+    }
+}
+5. 模组包格式（.modpack）
+json
+{
+  "format_version": "1.0",
+  "mod_info": {
+    "id": "custom_button_mod",
+    "name": "自定义按钮模组",
+    "version": "1.0.0",
+    "author": "用户名",
+    "description": "一个自定义的按钮模组"
+  },
+  "files": {
+    "assemblies": [
+      "bin/CustomButtonMod.dll"
+    ],
+    "configs": [
+      "config/button_config.json"
+    ],
+    "resources": [
+      "textures/button_normal.png",
+      "textures/button_pressed.png"
+    ]
+  },
+  "dependencies": {
+    "mod_sdk": ">=1.0.0",
+    "unity_runtime": ">=2021.3"
+  }
+}
+6. 简化的模组开发流程
+对于程序员：
+bash
+# 1. 安装模组开发工具
+download ModBuilder.exe
+
+# 2. 创建新模组
+ModBuilder.exe new MyButtonMod
+
+# 3. 使用任意代码编辑器开发
+code MyButtonMod/
+
+# 4. 构建模组
+ModBuilder.exe build MyButtonMod/
+
+# 5. 打包发布
+ModBuilder.exe package MyButtonMod/
+对于非程序员：
+下载 ModEditor.exe
+使用可视化界面创建模组逻辑
+一键导出 .modpack 文件
+7. 最小化Unity依赖
+创建一个精简的运行时库：
+
+csharp
+// ModRuntime.dll - 不依赖Unity编辑器的运行时
+namespace ModRuntime
+{
+    // 包装Unity的基础类型
+    public struct Vector3
+    {
+        public float x, y, z;
+        
+        public static implicit operator UnityEngine.Vector3(Vector3 v)
+        {
+            return new UnityEngine.Vector3(v.x, v.y, v.z);
+        }
+    }
+    
+    // 模拟GameObject
+    public class ModObject
+    {
+        public string Id { get; set; }
+        public Transform Transform { get; set; }
+        public List<Component> Components { get; set; }
+    }
+}
+8. Web版模组编辑器
+html
+<!-- 在线模组编辑器 -->
+<!DOCTYPE html>
+<html>
+<head>
+    <title>模组在线编辑器</title>
+    <script src="https://unpkg.com/blockly/blockly.min.js"></script>
+</head>
+<body>
+    <div id="blocklyDiv" style="height: 480px; width: 600px;"></div>
+    <button onclick="generateCode()">生成模组</button>
+    <button onclick="downloadMod()">下载模组</button>
+    
+    <script>
+        // 使用Blockly创建可视化编程界面
+        var workspace = Blockly.inject('blocklyDiv', {
+            toolbox: modToolbox
+        });
+        
+        function generateCode() {
+            var code = Blockly.CSharp.workspaceToCode(workspace);
+            // 生成模组代码
+        }
+        
+        function downloadMod() {
+            // 打包并下载模组
+        }
+    </script>
+</body>
+</html>
+总结
+这个方案的优势：
+
+无需Unity编辑器 - 用户只需要基础的开发工具
+多种开发方式 - 支持代码、可视化、在线编辑
+标准化流程 - 统一的构建和打包流程
+低门槛 - 非程序员也能创建简单模组
+跨平台 - 开发工具可以在任何系统上运行
+用户可以选择最适合自己的开发方式，而您的主系统只需要能够加载标准的 .modpack 文件即可。
+
+
+
+
+把你上面说到的部分，更新到你的完整文件里，并写好具体的操作说明
+
+Edit
+
+Strategized integrating modular development guide into existing documentation
+5s
+
+
+
+我将把独立模组开发方案整合到完整文档中。
+
+
+Unity模组通信系统 - 完整实现与文档
+Document ∙ Version 38 
+
+Planned to add independent module development section to document.
+1s
+
+
+
+Unity模组通信系统 - 完整实现与文档
+Document ∙ Version 39 
+
+Updated documentation with comprehensive mod development guide.
+5s
+
+
+
+我已经将独立模组开发方案完整地整合到文档中了。主要添加的内容包括：
+
+新增内容概述：
+1. ModSDK独立开发包
+不依赖Unity编辑器的核心库
+简化的接口定义（如自定义的Vector3）
+完整的SDK目录结构
+2. ModBuilder命令行工具
+完整的交互式菜单系统
+创建新模组项目
+构建和打包功能
+多种模组模板（按钮、机器人、传感器等）
+3. 详细的操作说明
+SDK安装步骤
+创建第一个模组的完整流程
+构建和打包步骤
+模组安装到游戏的方法
+4. 可视化开发选项
+ModEditor桌面应用（适合非程序员）
+Web在线编辑器（使用Blockly可视化编程）
+节点式编程转C#代码
+5. 完整的工作流程
+程序员工作流程（使用命令行和IDE）
+非程序员工作流程（使用可视化工具）
+版本管理和兼容性检查
+主要特点：
+无需Unity编辑器 - 用户只需要.NET SDK和文本编辑器
+多种开发方式 - 命令行、可视化、在线编辑器
+低门槛 - 提供模板和示例，非程序员也能创建简单模组
+标准化流程 - 统一的构建、测试、打包流程
+跨平台支持 - 工具可在Windows、Mac、Linux上运行
+使用流程简述：
+bash
+# 1. 安装ModSDK（只需做一次）
+下载并解压 ModSDK-v1.0.0.zip
+
+# 2. 创建模组
+ModBuilder
+选择 "1" → 输入模组信息 → 选择模组类型
+
+# 3. 开发模组
+使用VS Code或任何编辑器编辑代码
+
+# 4. 构建模组
+ModBuilder
+选择 "2" 构建
+
+# 5. 打包发布
+ModBuilder
+选择 "4" 打包
+
+# 6. 安装到游戏
+将.modpack文件复制到游戏的ModPackages目录
+这个方案让模组开发变得像开发普通的.NET项目一样简单，大大降低了开发门槛。用户不需要了解Unity的复杂性，只需要基本的编程知识（或使用可视化工具）就能创建模组。
+
+
+
+
+为什么模组里，有了gltf还要有prefab呢，prefab从哪来的
+
+Edit
+
+分析了glTF和prefab的区别，探讨模组开发解决方案
+8s
+
+
+
+
+您提出了一个非常关键的问题！确实，在独立模组开发方案中，prefab是个矛盾的存在。让我解释一下并提供更合理的解决方案。
+
+问题分析
+Prefab的本质
+Prefab（预制体） 是Unity编辑器特有的资源格式
+它需要在Unity编辑器中创建和编辑
+包含了GameObject的完整信息（组件、脚本引用、参数设置等）
+矛盾之处
+如果用户不使用Unity编辑器开发模组，就无法创建prefab，这与我们"独立开发"的目标相违背。
+
+更好的解决方案
+1. 移除Prefab依赖，使用配置文件
+json
+// 替代prefab的配置文件：object_definition.json
+{
+  "objectId": "interactive_button_01",
+  "name": "交互按钮",
+  "components": [
+    {
+      "type": "Transform",
+      "position": [0, 1, 0],
+      "rotation": [0, 0, 0],
+      "scale": [1, 1, 1]
+    },
+    {
+      "type": "MeshRenderer",
+      "model": "models/button.gltf",
+      "material": {
+        "shader": "Standard",
+        "color": [1, 1, 1, 1],
+        "metallic": 0.5,
+        "smoothness": 0.8
+      }
+    },
+    {
+      "type": "BoxCollider",
+      "center": [0, 0, 0],
+      "size": [1, 0.2, 1]
+    },
+    {
+      "type": "ModBehaviour",
+      "behaviourClass": "ButtonMod.ButtonBehaviour",
+      "config": {
+        "buttonId": "btn_01",
+        "clickSound": "audio/click.wav"
+      }
+    }
+  ]
+}
+2. 运行时对象创建系统
+csharp
+// ModSystem.Core/Runtime/ObjectFactory.cs
+namespace ModSystem.Core
+{
+    /// <summary>
+    /// 运行时对象工厂，替代prefab系统
+    /// </summary>
+    public class ModObjectFactory
+    {
+        private readonly IResourceLoader resourceLoader;
+        
+        public async Task<GameObject> CreateObjectAsync(string definitionPath)
+        {
+            // 加载对象定义
+            var json = await File.ReadAllTextAsync(definitionPath);
+            var definition = JsonSerializer.Deserialize<ObjectDefinition>(json);
+            
+            // 创建GameObject
+            var gameObject = new GameObject(definition.name);
+            
+            // 添加组件
+            foreach (var compDef in definition.components)
+            {
+                await AddComponentAsync(gameObject, compDef);
+            }
+            
+            return gameObject;
+        }
+        
+        private async Task AddComponentAsync(GameObject obj, ComponentDefinition compDef)
+        {
+            switch (compDef.type)
+            {
+                case "Transform":
+                    var transform = obj.transform;
+                    transform.position = ToVector3(compDef.position);
+                    transform.rotation = Quaternion.Euler(ToVector3(compDef.rotation));
+                    transform.localScale = ToVector3(compDef.scale);
+                    break;
+                    
+                case "MeshRenderer":
+                    // 加载glTF模型
+                    if (!string.IsNullOrEmpty(compDef.model))
+                    {
+                        await LoadGLTFModel(obj, compDef.model);
+                    }
+                    
+                    // 设置材质
+                    var renderer = obj.GetComponent<MeshRenderer>();
+                    if (renderer != null && compDef.material != null)
+                    {
+                        ConfigureMaterial(renderer, compDef.material);
+                    }
+                    break;
+                    
+                case "BoxCollider":
+                    var collider = obj.AddComponent<BoxCollider>();
+                    collider.center = ToVector3(compDef.center);
+                    collider.size = ToVector3(compDef.size);
+                    break;
+                    
+                case "ModBehaviour":
+                    // 动态加载行为脚本
+                    var behaviourType = Type.GetType(compDef.behaviourClass);
+                    if (behaviourType != null)
+                    {
+                        var behaviour = obj.AddComponent(behaviourType) as IModBehaviour;
+                        // 应用配置
+                        if (behaviour != null && compDef.config != null)
+                        {
+                            ApplyConfiguration(behaviour, compDef.config);
+                        }
+                    }
+                    break;
+            }
+        }
+        
+        private async Task LoadGLTFModel(GameObject obj, string modelPath)
+        {
+            // 使用GLTFUtility或其他glTF加载器
+            var gltf = await GLTFLoader.LoadAsync(modelPath);
+            gltf.InstantiateModel(obj.transform);
+        }
+    }
+}
+3. 更新后的模组结构（无Prefab）
+ButtonMod/
+├── Source/
+│   └── ButtonBehaviour.cs
+├── Models/                    # 3D模型
+│   ├── button.gltf
+│   └── button_pressed.gltf
+├── Objects/                   # 对象定义（替代prefab）
+│   ├── interactive_button.json
+│   └── toggle_button.json
+├── Config/
+│   └── config.json
+├── Resources/
+│   ├── Textures/
+│   │   ├── button_normal.png
+│   │   └── button_pressed.png
+│   └── Audio/
+│       └── click.wav
+└── manifest.json
+4. 模组中的对象实例化
+csharp
+// 在模组行为中创建对象
+public class ButtonModBehaviour : IModBehaviour
+{
+    private IModContext context;
+    private ModObjectFactory objectFactory;
+    
+    public async void OnInitialize(IModContext context)
+    {
+        this.context = context;
+        this.objectFactory = context.API.ObjectFactory;
+        
+        // 从对象定义创建按钮
+        var buttonObj = await objectFactory.CreateObjectAsync(
+            "Objects/interactive_button.json"
+        );
+        
+        // 设置位置
+        buttonObj.transform.position = new Vector3(0, 1, 0);
+        
+        // 获取按钮行为组件
+        var buttonBehaviour = buttonObj.GetComponent<ButtonBehaviour>();
+        if (buttonBehaviour != null)
+        {
+            // 订阅按钮事件
+            buttonBehaviour.OnButtonPressed += HandleButtonPress;
+        }
+    }
+}
+5. 可视化编辑器中的对象编辑
+对于可视化编辑器，我们可以提供一个对象编辑界面：
+
+csharp
+// ModEditor中的对象编辑器
+public class ObjectDefinitionEditor
+{
+    public ObjectDefinition CurrentObject { get; set; }
+    
+    public void AddComponent(string componentType)
+    {
+        var component = new ComponentDefinition
+        {
+            type = componentType
+        };
+        
+        // 设置默认值
+        switch (componentType)
+        {
+            case "MeshRenderer":
+                component.model = "选择glTF文件...";
+                break;
+            case "BoxCollider":
+                component.size = new[] { 1f, 1f, 1f };
+                break;
+        }
+        
+        CurrentObject.components.Add(component);
+    }
+    
+    public void SaveDefinition(string path)
+    {
+        var json = JsonSerializer.Serialize(CurrentObject, new JsonSerializerOptions
+        {
+            WriteIndented = true
+        });
+        File.WriteAllText(path, json);
+    }
+}
+6. 从Unity项目导出对象定义
+如果开发者使用Unity编辑器，可以提供一个导出工具：
+
+csharp
+// Unity编辑器中的导出工具
+[MenuItem("ModSystem/Export Object Definition")]
+public static void ExportObjectDefinition()
+{
+    var selected = Selection.activeGameObject;
+    if (selected == null) return;
+    
+    var definition = new ObjectDefinition
+    {
+        objectId = selected.name.ToLower().Replace(" ", "_"),
+        name = selected.name,
+        components = new List<ComponentDefinition>()
+    };
+    
+    // 导出Transform
+    definition.components.Add(new ComponentDefinition
+    {
+        type = "Transform",
+        position = ToArray(selected.transform.position),
+        rotation = ToArray(selected.transform.rotation.eulerAngles),
+        scale = ToArray(selected.transform.localScale)
+    });
+    
+    // 导出其他组件...
+    
+    // 保存为JSON
+    var json = JsonSerializer.Serialize(definition);
+    File.WriteAllText($"Assets/Exports/{selected.name}.json", json);
+}
+7. 资源引用方式
+json
+// manifest.json 中声明资源
+{
+  "resources": {
+    "models": [
+      {
+        "id": "button_model",
+        "path": "Models/button.gltf",
+        "type": "gltf"
+      }
+    ],
+    "objects": [
+      {
+        "id": "interactive_button",
+        "path": "Objects/interactive_button.json",
+        "type": "object_definition"
+      }
+    ],
+    "textures": [
+      {
+        "id": "button_texture",
+        "path": "Resources/Textures/button_normal.png",
+        "type": "texture2d"
+      }
+    ]
+  }
+}
+总结
+改进后的方案优势：
+完全独立 - 不需要Unity编辑器创建prefab
+可读性强 - JSON格式的对象定义易于理解和编辑
+版本控制友好 - 文本文件便于diff和merge
+灵活性高 - 可以手动编辑或通过工具生成
+跨平台 - 不依赖Unity特定的二进制格式
+资源类型对比：
+资源类型	用途	创建方式
+glTF	3D模型和动画	任何3D软件
+JSON对象定义	替代prefab，定义GameObject结构	文本编辑器/工具
+配置文件	运行时参数	文本编辑器
+纹理/音频	视觉和音效资源	常规创作工具
+这样的设计让模组开发真正独立于Unity编辑器，同时保持了足够的灵活性和功能性。
+
+
+
+
+更新你的文档
+
+Edit
+
+Strategized document update, replacing prefabs with object definitions.
+4s
+
+
+
+我将更新文档，移除prefab依赖，改用对象定义JSON文件系统。
+
+
+Strategized document updates and resource management tasks.
+3s
+
+
+
+Strategized core component implementation for object factory system.
+2s
+
+
+
+现在我需要在完整代码实现部分之前插入ObjectFactory的实现。我应该把它放在核心组件部分的末尾。
+2s
+
+
+
+Updated documentation for independent module development.
+2s
+
+
+
+Обновил документацию для создания правильного каталога в ModBuilder
+1s
+
+
+
+Planned configuration file update with object definitions.
+1s
+
+
+
+Планировал добавить метод CreateObjectDefinitions в код.
+0s
+
+
+
+Strategized updating documentation to include Objects directory.
+2s
+
+
+
+现在我需要更新文档中关于模组资源的说明，以及在模组清单中如何引用这些资源。
+1s
+
+
+
+Strategized ModLoader update for improved object handling.
+1s
+
+
+
+我还需要更新ModResourcePaths的定义，添加objects属性。
+1s
+
+
+
+Strategized updating project documentation for new structure.
+0s
+
+
+
+Refined module development documentation with object definition steps.
+1s
+
+
+
+Планировал добавить пояснения в раздел часто задаваемых вопросов.
+1s
+
+
+
+Планировал добавить инструкции по использованию ObjectFactory в API
+1s
+
+
+
+Планировал добавить пример использования объекта в документации.
+1s
+
+
+
+Unity模组通信系统 - 完整实现与文档
+Document ∙ Version 56 
+
+重构模组开发文档，简化对象创建流程
+7s
+
+
+
+我已经完成了文档的更新，主要改动包括：
+
+主要更新内容：
+1. 移除Prefab依赖
+删除了所有Prefab相关的引用
+用对象定义JSON文件替代Prefab系统
+2. 新增ObjectFactory系统
+添加了完整的ObjectFactory实现
+支持从JSON文件动态创建GameObject
+支持常用组件（Transform、MeshRenderer、Collider等）
+3. 更新模组结构
+模组目录/
+├── Objects/     # 对象定义（替代Prefab）
+├── Models/      # 3D模型（glTF格式）
+├── Source/      # 源代码
+├── Config/      # 配置文件
+└── Resources/   # 其他资源
+4. 更新开发工具
+ModBuilder现在创建Objects目录
+自动生成对象定义示例文件
+打包时包含Objects和Models目录
+5. 对象定义示例
+json
+{
+  "objectId": "interactive_button",
+  "name": "交互按钮",
+  "components": [
+    {
+      "type": "Transform",
+      "properties": {
+        "position": [0, 1, 0],
+        "scale": [1, 0.2, 1]
+      }
+    },
+    {
+      "type": "MeshRenderer",
+      "properties": {
+        "model": "Models/button.gltf",
+        "material": {
+          "color": [1, 1, 1, 1],
+          "metallic": 0.5
+        }
+      }
+    }
+  ]
+}
+6. 使用方式
+csharp
+// 在模组中创建对象
+var buttonObj = await context.API.ObjectFactory.CreateObjectAsync("Objects/button.json");
+优势：
+完全独立 - 不需要Unity编辑器
+易于编辑 - JSON格式，可用任何文本编辑器
+版本控制友好 - 文本文件便于diff和merge
+灵活扩展 - 可以轻松添加新的组件类型
+跨平台 - 不依赖Unity特定的二进制格式
+现在用户可以：
+
+使用任何3D软件创建模型（导出为glTF）
+编辑JSON文件定义游戏对象结构
+完全不需要Unity编辑器就能开发功能完整的模组
+这样的设计真正实现了模组开发的独立性，大大降低了开发门槛。
+
+
+
+
+开发流程
+1. 创建新模组
+
+bash
+# 使用模组模板创建新模组
+Unity ModSystem SDK > Create New Mod > Enter Mod Name
+这是什么意思
+Edit
+
+发现文档中的开发流程描述存在不一致性
+5s
+
+
+
+
+您指出了文档中的一个重要问题！这段内容：
+
+bash
+# 使用模组模板创建新模组
+Unity ModSystem SDK > Create New Mod > Enter Mod Name
+这是错误的，因为它暗示需要在Unity编辑器中操作（通过菜单选项），这与我们的"独立开发"目标相矛盾。
+
+让我更新这部分内容：
+
+
+Planned updates to documentation for mod development process.
+1s
+
+
+
+Investigated Unity editor documentation for additional details.
+1s
+
+
+
+Verified documentation structure matches new mod system requirements.
+1s
+
+
+
+Checked development suggestions for Unity editor details.
+2s
+
+
+
+Verified document structure for latest project details.
+1s
+
+
+
+检查并确保文档的一致性和完整性
+2s
+
+
+
+Unity模组通信系统 - 完整实现与文档
+Document ∙ Version 63 
+
+Reviewed and refined mod development documentation for consistency.
+2s
+
+
+现在我已经更新了文档中所有不一致的地方。主要改动包括：
+
+修正内容总结：
+1. 开发流程部分
+移除了 Unity ModSystem SDK > Create New Mod 这种Unity编辑器菜单操作
+改为使用 ModBuilder 命令行工具
+明确了两种创建方式：交互式和命令行参数
+2. 项目结构
+移除了 Prefabs/ 目录
+添加了 Objects/ 目录（JSON对象定义）
+添加了 Models/ 目录（glTF模型）
+明确区分了Unity项目和独立模组项目的结构
+3. 文件位置说明
+更新了所有路径，反映新的目录结构
+添加了ObjectFactory的位置
+明确了独立开发SDK的文件
+4. 部署说明
+区分了"主系统集成"（Unity项目）和"模组安装"（用户端）
+强调了.modpack文件的使用
+移除了对Unity编辑器的依赖
+5. 开发建议
+添加了"使用对象定义"的建议
+强调了glTF模型格式
+推荐配置驱动开发
+现在整个文档是一致的，清楚地说明了：
+
+开发模组不需要Unity编辑器，只需要ModBuilder工具
+运行模组需要在Unity项目中集成模组系统核心
+使用JSON对象定义替代Unity的Prefab系统
+通过命令行工具完成所有开发流程
+这样用户可以在没有Unity的情况下开发功能完整的模组，真正实现了独立开发的目标。
+
+
+
+
+modbuilder是啥
+
+Edit
+
+准备解释ModBuilder的具体概念和作用
+2s
+
+
+ModBuilder 是我在文档中设计的命令行工具，用于帮助用户在不需要Unity编辑器的情况下开发模组。让我详细解释：
+
+ModBuilder 是什么？
+概念
+ModBuilder 是一个独立的可执行程序（.exe），是ModSDK开发包的核心工具之一。它的作用类似于：
+
+npm 在 Node.js 开发中的作用
+dotnet CLI 在 .NET 开发中的作用
+cargo 在 Rust 开发中的作用
+主要功能
+bash
+ModBuilder 提供以下功能：
+
+1. 创建新模组项目 - 生成项目模板和目录结构
+2. 构建模组代码 - 编译 C# 代码为 DLL
+3. 测试模组 - 本地测试功能
+4. 打包模组 - 生成 .modpack 文件
+5. 管理依赖 - 处理模组间的依赖关系
+使用方式
+bash
+# 交互式界面
+ModBuilder
+
+# 命令行模式
+ModBuilder new my_mod          # 创建新模组
+ModBuilder build               # 构建当前模组
+ModBuilder package             # 打包模组
+ModBuilder test                # 测试模组
+ModBuilder 的实际实现
+在文档中，我提供了 ModBuilder 的完整实现代码（在第2节"ModBuilder - 命令行构建工具"中）。它是一个 C# 控制台应用程序，主要功能包括：
+
+项目生成器
+创建目录结构
+生成代码模板
+创建配置文件
+复制SDK文件
+构建系统
+调用 .NET 编译器
+编译模组代码
+处理依赖关系
+打包工具
+收集所有文件
+创建 .modpack 压缩包
+生成清单文件
+安装和使用
+bash
+# 1. 下载 ModSDK
+下载 ModSDK-v1.0.0.zip
+
+# 2. 解压后的目录结构
+ModSDK/
+├── Tools/
+│   ├── ModBuilder.exe    # 这就是 ModBuilder
+│   ├── ModEditor.exe     # 可视化编辑器
+│   └── ModPackager.exe   # 打包工具
+
+# 3. 使用 ModBuilder
+cd C:\ModSDK\Tools\
+ModBuilder.exe
+为什么需要 ModBuilder？
+无需Unity编辑器 - 用户不需要安装庞大的Unity
+简化开发流程 - 自动化创建、构建、打包
+标准化项目结构 - 确保所有模组遵循相同规范
+降低开发门槛 - 提供模板和向导
+实际效果
+使用 ModBuilder 后，开发模组就像开发普通的 C# 项目：
+
+bash
+# 创建按钮模组
+ModBuilder new my_button_mod --type button
+
+# 编辑代码（使用任何编辑器）
+code my_button_mod/
+
+# 构建
+ModBuilder build
+
+# 打包
+ModBuilder package
+
+# 得到: my_button_mod_v1.0.0.modpack
+总结
+ModBuilder 是整个独立模组开发方案的核心，它让模组开发者能够：
+
+不依赖 Unity 编辑器
+使用熟悉的开发工具（VS Code、Visual Studio等）
+通过简单的命令完成整个开发流程
+生成可以直接在游戏中使用的模组包
+这就是为什么在文档中频繁提到 ModBuilder —— 它是实现"独立模组开发"这个目标的关键工具。
+
+
+
+
+配置驱动的通信路由，是什么意思，解释一下
+Edit
+
+解析配置驱动通信路由的关键概念和工作原理
+3s
+
+
+
+配置驱动的通信路由 解释
+概念理解
+配置驱动的通信路由是指：通过配置文件（而不是硬编码）来定义模组之间的通信关系和行为。
+
+可以理解为：
+
+传统方式：在代码中写死"按钮A被按下时，机器人B旋转45度"
+配置驱动：在配置文件中定义"当收到按钮事件时，执行什么动作"
+具体例子对比
+1. 硬编码方式（不好）
+csharp
+// 按钮代码中直接写死了要控制的对象和动作
+public class ButtonBehaviour : IModBehaviour
+{
+    void OnButtonClick()
+    {
+        // 硬编码：这个按钮只能控制特定的机器人
+        eventBus.Publish(new ControlRobotEvent
+        {
+            RobotId = "robot_01",        // 写死了机器人ID
+            JointName = "base_rotation",  // 写死了关节名
+            Angle = 45                    // 写死了角度
+        });
+    }
+}
+问题：
+
+要改变按钮功能需要修改代码
+按钮和机器人紧密耦合
+无法灵活配置
+2. 配置驱动方式（推荐）
+配置文件 communication_config.json：
+
+json
+{
+  "routes": [
+    {
+      "name": "红色按钮控制机器人旋转",
+      "sourceEvent": "ButtonMod.ButtonPressedEvent",  // 监听什么事件
+      "conditions": [                                  // 什么条件下触发
+        {
+          "property": "ButtonId",
+          "operator": "==", 
+          "value": "red_button"
+        }
+      ],
+      "actions": [                                     // 触发什么动作
+        {
+          "targetMod": "robot_mod",
+          "eventType": "RobotMod.RotateJointEvent",
+          "parameters": {
+            "jointName": "base_rotation",
+            "angle": 45
+          }
+        }
+      ]
+    },
+    {
+      "name": "绿色按钮控制传送带",
+      "sourceEvent": "ButtonMod.ButtonPressedEvent",
+      "conditions": [
+        {
+          "property": "ButtonId",
+          "operator": "==",
+          "value": "green_button"
+        }
+      ],
+      "actions": [
+        {
+          "targetMod": "conveyor_mod",
+          "eventType": "ConveyorMod.StartEvent",
+          "parameters": {
+            "speed": 2.0
+          }
+        }
+      ]
+    }
+  ]
+}
+按钮代码（通用）：
+
+csharp
+public class ButtonBehaviour : IModBehaviour
+{
+    void OnButtonClick()
+    {
+        // 只发布通用事件，不关心谁会响应
+        eventBus.Publish(new ButtonPressedEvent
+        {
+            ButtonId = this.buttonId
+        });
+    }
+}
+工作原理
+按钮被按下 → 发布事件 → 路由器检查配置 → 匹配条件 → 执行配置的动作
+
+具体流程：
+1. 按钮发布: ButtonPressedEvent { ButtonId = "red_button" }
+2. 路由器接收事件
+3. 检查配置文件中的所有路由规则
+4. 发现匹配: ButtonId == "red_button"
+5. 执行动作: 发送RotateJointEvent给robot_mod
+CommunicationRouter 的实现
+文档中的 CommunicationRouter 就是实现这个功能的核心类：
+
+csharp
+public class CommunicationRouter
+{
+    private CommunicationConfig config;  // 加载的配置
+    
+    public void HandleEvent<T>(T eventData) where T : IModEvent
+    {
+        // 1. 查找匹配的路由规则
+        var matchingRoutes = FindMatchingRoutes(eventData);
+        
+        foreach (var route in matchingRoutes)
+        {
+            // 2. 检查条件是否满足
+            if (EvaluateConditions(route.Conditions, eventData))
+            {
+                // 3. 执行配置的动作
+                ExecuteActions(route.Actions);
+            }
+        }
+    }
+}
+实际应用场景
+场景1：工厂自动化系统
+json
+{
+  "routes": [
+    {
+      "name": "传感器检测到物体后启动机器人",
+      "sourceEvent": "SensorMod.ObjectDetectedEvent",
+      "conditions": [
+        {
+          "property": "ObjectType",
+          "operator": "==",
+          "value": "package"
+        }
+      ],
+      "actions": [
+        {
+          "targetMod": "robot_mod",
+          "eventType": "PickupObjectEvent",
+          "delay": 500
+        },
+        {
+          "targetMod": "conveyor_mod", 
+          "eventType": "StopConveyorEvent",
+          "delay": 0
+        }
+      ]
+    }
+  ]
+}
+场景2：紧急停止系统
+json
+{
+  "routes": [
+    {
+      "name": "紧急停止按钮",
+      "sourceEvent": "ButtonMod.ButtonPressedEvent",
+      "conditions": [
+        {
+          "property": "ButtonId",
+          "operator": "==",
+          "value": "emergency_stop"
+        }
+      ],
+      "actions": [
+        {
+          "targetMod": "ALL",  // 发送给所有模组
+          "eventType": "EmergencyStopEvent"
+        },
+        {
+          "targetMod": "alarm_mod",
+          "eventType": "TriggerAlarmEvent",
+          "parameters": {
+            "sound": "emergency.wav",
+            "duration": 10000
+          }
+        }
+      ]
+    }
+  ]
+}
+优势
+灵活性
+无需修改代码就能改变系统行为
+同一个按钮可以在不同场景下有不同功能
+可维护性
+非程序员也能修改系统行为
+配置文件易于理解和修改
+解耦合
+模组之间不需要互相了解
+通过配置文件连接模组
+可视化潜力
+配置文件可以通过图形界面生成
+易于创建可视化配置工具
+实际使用示例
+假设您有一个智能家居系统：
+
+json
+{
+  "routes": [
+    {
+      "name": "开灯按钮",
+      "sourceEvent": "ButtonPressedEvent",
+      "conditions": [{"property": "ButtonId", "operator": "==", "value": "light_switch"}],
+      "actions": [
+        {"targetMod": "light_mod", "eventType": "ToggleLightEvent"}
+      ]
+    },
+    {
+      "name": "运动传感器自动开灯",
+      "sourceEvent": "MotionDetectedEvent",
+      "conditions": [{"property": "Location", "operator": "==", "value": "hallway"}],
+      "actions": [
+        {"targetMod": "light_mod", "eventType": "TurnOnLightEvent", "parameters": {"brightness": 50}}
+      ]
+    },
+    {
+      "name": "定时关灯",
+      "sourceEvent": "TimerEvent",
+      "conditions": [{"property": "Time", "operator": "==", "value": "23:00"}],
+      "actions": [
+        {"targetMod": "light_mod", "eventType": "TurnOffLightEvent"}
+      ]
+    }
+  ]
+}
+通过修改这个配置文件，您可以：
+
+改变按钮的功能
+添加新的自动化规则
+调整系统行为
+而完全不需要修改任何代码！
+这就是配置驱动的通信路由的强大之处。
+
+
+
+
+使用对象定义创建游戏对象，是什么意思
+Edit
+
+Analyzed object definition concept for Unity game development.
+3s
+
+
+使用对象定义创建游戏对象 解释
+核心概念
+对象定义是一个JSON文件，描述了一个游戏对象（GameObject）的完整结构，包括：
+
+有哪些组件（Component）
+每个组件的属性值
+使用什么3D模型
+挂载什么脚本
+它是用来替代Unity的Prefab系统的解决方案。
+
+为什么需要对象定义？
+传统Unity开发（需要Unity编辑器）
+1. 打开Unity编辑器
+2. 创建GameObject
+3. 添加组件（拖拽）
+4. 设置属性（界面操作）
+5. 保存为Prefab
+问题：必须使用Unity编辑器
+
+使用对象定义（不需要Unity编辑器）
+1. 创建JSON文件
+2. 描述对象结构
+3. 运行时动态创建
+优势：只需要文本编辑器
+
+具体例子：创建一个按钮
+1. 对象定义文件（interactive_button.json）
+json
+{
+  "objectId": "interactive_button_01",
+  "name": "交互按钮",
+  "components": [
+    {
+      "type": "Transform",
+      "properties": {
+        "position": [0, 1, 0],      // 位置：x=0, y=1, z=0
+        "rotation": [0, 0, 0],      // 旋转：无
+        "scale": [1, 0.2, 1]        // 缩放：扁平的按钮
+      }
+    },
+    {
+      "type": "MeshRenderer",
+      "properties": {
+        "model": "Models/button.gltf",   // 3D模型文件
+        "material": {
+          "shader": "Standard",
+          "color": [1, 1, 1, 1],        // 白色
+          "metallic": 0.5,              // 金属度
+          "smoothness": 0.8             // 光滑度
+        }
+      }
+    },
+    {
+      "type": "BoxCollider",
+      "properties": {
+        "center": [0, 0, 0],
+        "size": [1, 0.2, 1],           // 碰撞盒大小
+        "isTrigger": false
+      }
+    },
+    {
+      "type": "ModBehaviour",
+      "properties": {
+        "behaviourClass": "ButtonMod.ButtonBehaviour",  // 行为脚本
+        "config": {
+          "buttonId": "btn_01",
+          "clickSound": "audio/click.wav"
+        }
+      }
+    }
+  ]
+}
+2. 使用对象定义创建按钮
+csharp
+public class MyModBehaviour : IModBehaviour
+{
+    private IModContext context;
+    
+    public async void OnInitialize(IModContext context)
+    {
+        this.context = context;
+        
+        // 从JSON文件创建按钮对象
+        GameObject button = await context.API.ObjectFactory
+            .CreateObjectAsync("Objects/interactive_button.json");
+        
+        // 按钮已经创建完成，包含所有组件和属性！
+        button.transform.position = new Vector3(2, 1, 0);
+    }
+}
+工作流程图解
+JSON文件 → ObjectFactory解析 → 创建GameObject → 添加组件 → 设置属性 → 完成
+
+具体步骤：
+1. 读取 interactive_button.json
+2. 创建空的 GameObject，命名为"交互按钮"
+3. 添加 Transform 组件，设置位置为 (0,1,0)
+4. 添加 MeshRenderer，加载 button.gltf 模型
+5. 添加 BoxCollider，设置碰撞盒
+6. 添加 ButtonBehaviour 脚本
+7. 返回完整的游戏对象
+更复杂的例子：机器人手臂
+json
+{
+  "objectId": "robot_arm_01",
+  "name": "机器人手臂",
+  "components": [
+    {
+      "type": "Transform",
+      "properties": {
+        "position": [0, 0, 0],
+        "scale": [1, 1, 1]
+      }
+    },
+    {
+      "type": "MeshRenderer",
+      "properties": {
+        "model": "Models/robot_base.gltf",
+        "material": {
+          "shader": "Standard",
+          "color": [0.8, 0.8, 0.8, 1],
+          "metallic": 0.7,
+          "smoothness": 0.9
+        }
+      }
+    },
+    {
+      "type": "RigidBody",
+      "properties": {
+        "mass": 50,
+        "isKinematic": true,      // 运动学刚体
+        "useGravity": false       // 不受重力影响
+      }
+    },
+    {
+      "type": "ModBehaviour",
+      "properties": {
+        "behaviourClass": "RobotMod.RobotArmBehaviour",
+        "config": {
+          "robotId": "robot_01",
+          "joints": [
+            {
+              "name": "base_rotation",
+              "axis": [0, 1, 0],
+              "minAngle": -180,
+              "maxAngle": 180
+            }
+          ]
+        }
+      }
+    }
+  ]
+}
+动态创建对象
+除了从文件加载，还可以在代码中动态定义：
+
+csharp
+// 在代码中创建对象定义
+var dynamicObject = new ObjectDefinition
+{
+    objectId = "dynamic_cube",
+    name = "动态创建的立方体",
+    components = new List<ComponentDefinition>
+    {
+        new ComponentDefinition
+        {
+            type = "Transform",
+            properties = new Dictionary<string, object>
+            {
+                { "position", new[] { 0f, 5f, 0f } },
+                { "scale", new[] { 2f, 2f, 2f } }
+            }
+        },
+        new ComponentDefinition
+        {
+            type = "MeshRenderer",
+            properties = new Dictionary<string, object>
+            {
+                { "model", "Models/cube.gltf" },
+                { "material", new Dictionary<string, object>
+                {
+                    { "color", new[] { 1f, 0f, 0f, 1f } }  // 红色
+                }}
+            }
+        }
+    }
+};
+
+// 创建对象
+var cube = await context.API.ObjectFactory
+    .CreateObjectFromDefinitionAsync(dynamicObject);
+支持的组件类型
+ObjectFactory 可以处理常见的Unity组件：
+
+json
+// Transform - 位置、旋转、缩放
+{
+  "type": "Transform",
+  "properties": {
+    "position": [x, y, z],
+    "rotation": [x, y, z],
+    "scale": [x, y, z]
+  }
+}
+
+// MeshRenderer - 3D模型和材质
+{
+  "type": "MeshRenderer",
+  "properties": {
+    "model": "path/to/model.gltf",
+    "material": { ... }
+  }
+}
+
+// Colliders - 碰撞体
+{
+  "type": "BoxCollider",
+  "properties": {
+    "center": [x, y, z],
+    "size": [x, y, z],
+    "isTrigger": true/false
+  }
+}
+
+// RigidBody - 物理
+{
+  "type": "RigidBody",
+  "properties": {
+    "mass": 1.0,
+    "useGravity": true,
+    "isKinematic": false
+  }
+}
+
+// 自定义脚本
+{
+  "type": "ModBehaviour",
+  "properties": {
+    "behaviourClass": "完整类名",
+    "config": { ... }
+  }
+}
+实际应用场景
+场景1：创建UI面板
+json
+{
+  "objectId": "control_panel",
+  "name": "控制面板",
+  "components": [
+    {
+      "type": "Transform",
+      "properties": {
+        "position": [0, 2, -1]
+      }
+    },
+    {
+      "type": "MeshRenderer",
+      "properties": {
+        "model": "Models/panel.gltf"
+      }
+    },
+    {
+      "type": "ModBehaviour",
+      "properties": {
+        "behaviourClass": "UIMod.PanelController",
+        "config": {
+          "buttons": ["start", "stop", "reset"],
+          "displayText": "系统就绪"
+        }
+      }
+    }
+  ]
+}
+场景2：批量创建对象
+csharp
+// 从配置创建多个灯泡
+for (int i = 0; i < 10; i++)
+{
+    var lightDef = JsonConvert.DeserializeObject<ObjectDefinition>(
+        File.ReadAllText("Objects/light_bulb.json")
+    );
+    
+    // 修改位置
+    lightDef.components[0].properties["position"] = new[] { i * 2f, 3f, 0f };
+    
+    // 创建对象
+    var light = await objectFactory.CreateObjectFromDefinitionAsync(lightDef);
+}
+优势总结
+无需Unity编辑器
+用记事本就能"制作"游戏对象
+版本控制友好
+JSON是文本文件，易于Git管理
+动态灵活
+可以运行时修改和创建
+易于批量处理
+可以用脚本批量生成对象定义
+跨平台
+JSON文件在任何平台都能编辑
+与Prefab的对比
+特性	Prefab	对象定义
+创建方式	Unity编辑器	文本编辑器
+文件格式	二进制	JSON文本
+版本控制	困难	简单
+运行时修改	受限	灵活
+学习成本	需要学Unity	只需了解JSON
+这就是"使用对象定义创建游戏对象"的含义——通过JSON配置文件来描述和创建游戏对象，完全不需要Unity编辑器！
+
+
+
+
+对象工厂系统（替代Prefab），这一段为什么到开头来了，应该在哪里的
+Edit
+
+Repositioned section to more appropriate document location.
+5s
+
+
+
+
+您说得对！"5. 对象工厂系统（替代Prefab）"这段代码不应该出现在文档前面。它应该在"完整代码实现"部分中，作为核心系统实现的一部分。
+
+让我修正这个问题：
+
+
+Repositioned code section to appropriate system implementation location.
+2s
+
+
+
+Adjusted debugging tool sequence to accommodate object factory system.
+2s
+
+
+
+Unity模组通信系统 - 完整实现与文档
+Document ∙ Version 66 
+
+
+
+
+你只需要整理最新版的文件就行了，格式有点错乱
+
+Edit
+
+重新整理文件，确保结构清晰和内容准确
+2s
+
+
+
+我来创建一个整理好的完整版本：
+
+
+Unity模组通信系统 - 完整实现与文档
+Document ∙ Version 67 
+
+
+

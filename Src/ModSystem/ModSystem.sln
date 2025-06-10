@@ -1,0 +1,31 @@
+﻿
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.11.35208.52
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ModSystem.Core", "ModSystem.Core\ModSystem.Core.csproj", "{B9B3A275-E610-4045-BF1A-5750AEB82732}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ButtonMod", "ButtonMod\ButtonMod.csproj", "{A36D6591-6D70-4721-B358-681DADD2FFE2}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{B9B3A275-E610-4045-BF1A-5750AEB82732}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{B9B3A275-E610-4045-BF1A-5750AEB82732}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{B9B3A275-E610-4045-BF1A-5750AEB82732}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{B9B3A275-E610-4045-BF1A-5750AEB82732}.Release|Any CPU.Build.0 = Release|Any CPU
+		{A36D6591-6D70-4721-B358-681DADD2FFE2}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{A36D6591-6D70-4721-B358-681DADD2FFE2}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{A36D6591-6D70-4721-B358-681DADD2FFE2}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{A36D6591-6D70-4721-B358-681DADD2FFE2}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {A64176D9-8137-4539-AE91-D6D37DD393A3}
+	EndGlobalSection
+EndGlobal
