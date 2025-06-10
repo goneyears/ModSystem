@@ -1,6 +1,6 @@
 // ===================================================================
-// ModSystemController.cs - 完整的Unity层实现
-// Unity平台特定的实现
+// ModSystemController.cs - 简化的Unity层实现
+// Unity平台特定的实现，不包含任何UI预置
 // ===================================================================
 
 namespace ModSystem.Unity
@@ -12,8 +12,6 @@ namespace ModSystem.Unity
     using System.Linq;
     using System.IO;
     using ILogger = ModSystem.Core.ILogger;
-    using UnityEngine.UI;
-    using UnityEngine.EventSystems;
     using System;
 
     #region Unity实现
@@ -60,7 +58,7 @@ namespace ModSystem.Unity
     #region 主控制器
 
     /// <summary>
-    /// 模组系统控制器 - Unity主入口
+    /// 模组系统控制器 - Unity主入口（极简版本）
     /// </summary>
     [AddComponentMenu("ModSystem/Mod System Controller")]
     public class ModSystemController : MonoBehaviour
@@ -310,7 +308,7 @@ namespace ModSystem.Unity
     #region ModManager
 
     /// <summary>
-    /// Unity模组管理器
+    /// Unity模组管理器（极简版本，不包含UI相关代码）
     /// </summary>
     public class ModManager : MonoBehaviour
     {
@@ -358,13 +356,12 @@ namespace ModSystem.Unity
             {
                 Debug.Log($"[ModManager] Behaviour created successfully: {behaviour.GetType().FullName}");
                 
-                // 创建上下文
+                // 创建上下文 - 简化版本，不包含UI工厂
                 var context = new ModContext
                 {
                     ModId = instance.LoadedMod.Manifest.id,
                     EventBus = core.EventBus,
-                    Logger = new UnityLogger(),
-                    UI = unityInstance.UIFactory
+                    Logger = new UnityLogger()
                 };
                 
                 // 初始化模组
@@ -443,14 +440,10 @@ namespace ModSystem.Unity
             var modObj = new GameObject($"Mod_{modId}_v{instance.LoadedMod.LoadVersion}");
             modObj.transform.SetParent(modsContainer);
             
-            // 创建UI工厂
-            var uiFactory = new UnityUIFactory(modObj);
-            
             var unityInstance = new ModUnityInstance
             {
                 GameObject = modObj,
-                ModInstance = instance,
-                UIFactory = uiFactory
+                ModInstance = instance
             };
             
             Debug.Log($"[ModManager] Created Unity instance for mod: {modId}");
@@ -462,9 +455,6 @@ namespace ModSystem.Unity
         {
             if (unityInstances.TryGetValue(modId, out var unityInstance))
             {
-                // 清理UI工厂
-                unityInstance.UIFactory?.Cleanup();
-                
                 // 销毁GameObject
                 if (unityInstance.GameObject != null)
                 {
@@ -482,259 +472,13 @@ namespace ModSystem.Unity
     }
 
     /// <summary>
-    /// 模组的Unity实例数据
+    /// 模组的Unity实例数据（简化版本）
     /// </summary>
     public class ModUnityInstance
     {
         public GameObject GameObject { get; set; }
         public ModInstance ModInstance { get; set; }
         public IMod Behaviour { get; set; }
-        public UnityUIFactory UIFactory { get; set; }
-    }
-
-    #endregion
-
-    #region UI工厂
-
-    /// <summary>
-    /// 字典扩展方法
-    /// </summary>
-    internal static class DictionaryExtensions
-    {
-        public static TValue GetValueOrDefault<TKey, TValue>(this Dictionary<TKey, TValue> dict, TKey key, TValue defaultValue = default)
-        {
-            return dict.TryGetValue(key, out var value) ? value : defaultValue;
-        }
-    }
-
-    /// <summary>
-    /// Unity UI工厂实现
-    /// </summary>
-    public class UnityUIFactory : IUIFactory
-    {
-        private readonly GameObject modContainer;
-        private readonly Dictionary<string, GameObject> elements = new Dictionary<string, GameObject>();
-        private Canvas modCanvas;
-
-        public UnityUIFactory(GameObject modContainer)
-        {
-            this.modContainer = modContainer;
-            EnsureCanvas();
-            EnsureEventSystem();
-        }
-
-        public string CreateButton(string name, string text, Action onClick)
-        {
-            var buttonGO = DefaultControls.CreateButton(new DefaultControls.Resources());
-            buttonGO.name = name;
-            buttonGO.transform.SetParent(modCanvas.transform, false);
-            
-            var textComp = buttonGO.GetComponentInChildren<Text>();
-            if (textComp != null)
-            {
-                textComp.text = text;
-            }
-            
-            var button = buttonGO.GetComponent<Button>();
-            button.onClick.RemoveAllListeners();
-            button.onClick.AddListener(() => onClick());
-            
-            string elementId = Guid.NewGuid().ToString();
-            elements[elementId] = buttonGO;
-            
-            return elementId;
-        }
-
-        public string CreateText(string name, string text)
-        {
-            var textGO = DefaultControls.CreateText(new DefaultControls.Resources());
-            textGO.name = name;
-            textGO.transform.SetParent(modCanvas.transform, false);
-            
-            var textComp = textGO.GetComponent<Text>();
-            if (textComp != null)
-            {
-                textComp.text = text;
-            }
-            
-            string elementId = Guid.NewGuid().ToString();
-            elements[elementId] = textGO;
-            
-            return elementId;
-        }
-
-        public string CreateImage(string name)
-        {
-            var imageGO = DefaultControls.CreateImage(new DefaultControls.Resources());
-            imageGO.name = name;
-            imageGO.transform.SetParent(modCanvas.transform, false);
-            
-            string elementId = Guid.NewGuid().ToString();
-            elements[elementId] = imageGO;
-            
-            return elementId;
-        }
-
-        public string CreatePanel(string name)
-        {
-            var panelGO = DefaultControls.CreatePanel(new DefaultControls.Resources());
-            panelGO.name = name;
-            panelGO.transform.SetParent(modCanvas.transform, false);
-            
-            string elementId = Guid.NewGuid().ToString();
-            elements[elementId] = panelGO;
-            
-            return elementId;
-        }
-
-        public void SetProperty(string elementId, string property, object value)
-        {
-            if (!elements.TryGetValue(elementId, out var go)) return;
-
-            switch (property.ToLower())
-            {
-                case "size":
-                    // 支持多种输入格式
-                    if (value is Vector2 v2)
-                    {
-                        var rt = go.GetComponent<RectTransform>();
-                        rt.sizeDelta = v2;
-                    }
-                    else if (value is Dictionary<string, object> dict)
-                    {
-                        var rt = go.GetComponent<RectTransform>();
-                        float width = Convert.ToSingle(dict.GetValueOrDefault("width", 0f));
-                        float height = Convert.ToSingle(dict.GetValueOrDefault("height", 0f));
-                        rt.sizeDelta = new Vector2(width, height);
-                    }
-                    else if (value is ValueTuple<float, float> tuple)
-                    {
-                        var rt = go.GetComponent<RectTransform>();
-                        rt.sizeDelta = new Vector2(tuple.Item1, tuple.Item2);
-                    }
-                    break;
-                    
-                case "position":
-                    if (value is Vector2 pos)
-                    {
-                        var rt = go.GetComponent<RectTransform>();
-                        rt.anchoredPosition = pos;
-                    }
-                    else if (value is Dictionary<string, object> dict)
-                    {
-                        var rt = go.GetComponent<RectTransform>();
-                        float x = Convert.ToSingle(dict.GetValueOrDefault("x", 0f));
-                        float y = Convert.ToSingle(dict.GetValueOrDefault("y", 0f));
-                        rt.anchoredPosition = new Vector2(x, y);
-                    }
-                    else if (value is ValueTuple<float, float> tuple)
-                    {
-                        var rt = go.GetComponent<RectTransform>();
-                        rt.anchoredPosition = new Vector2(tuple.Item1, tuple.Item2);
-                    }
-                    break;
-                    
-                case "color":
-                    var image = go.GetComponent<Image>();
-                    if (image != null)
-                    {
-                        if (value is string colorHex)
-                        {
-                            if (ColorUtility.TryParseHtmlString(colorHex, out Color color))
-                            {
-                                image.color = color;
-                            }
-                        }
-                        else if (value is Color color)
-                        {
-                            image.color = color;
-                        }
-                        else if (value is Dictionary<string, object> dict)
-                        {
-                            float r = Convert.ToSingle(dict.GetValueOrDefault("r", 1f));
-                            float g = Convert.ToSingle(dict.GetValueOrDefault("g", 1f));
-                            float b = Convert.ToSingle(dict.GetValueOrDefault("b", 1f));
-                            float a = Convert.ToSingle(dict.GetValueOrDefault("a", 1f));
-                            image.color = new Color(r, g, b, a);
-                        }
-                        else if (value is ValueTuple<float, float, float, float> rgba)
-                        {
-                            image.color = new Color(rgba.Item1, rgba.Item2, rgba.Item3, rgba.Item4);
-                        }
-                    }
-                    break;
-                    
-                case "text":
-                    var text = go.GetComponentInChildren<Text>();
-                    if (text != null)
-                    {
-                        text.text = value.ToString();
-                    }
-                    break;
-                    
-                case "active":
-                    go.SetActive(Convert.ToBoolean(value));
-                    break;
-            }
-        }
-
-        public T GetProperty<T>(string elementId, string property)
-        {
-            if (!elements.TryGetValue(elementId, out var go)) 
-                return default(T);
-
-            switch (property.ToLower())
-            {
-                case "active":
-                    return (T)(object)go.activeSelf;
-                    
-                case "text":
-                    var text = go.GetComponentInChildren<Text>();
-                    return text != null ? (T)(object)text.text : default(T);
-                    
-                default:
-                    return default(T);
-            }
-        }
-
-        public void DestroyElement(string elementId)
-        {
-            if (elements.TryGetValue(elementId, out var go))
-            {
-                UnityEngine.Object.Destroy(go);
-                elements.Remove(elementId);
-            }
-        }
-
-        private void EnsureCanvas()
-        {
-            var canvasGO = new GameObject("ModCanvas");
-            canvasGO.transform.SetParent(modContainer.transform);
-            
-            modCanvas = canvasGO.AddComponent<Canvas>();
-            canvasGO.AddComponent<CanvasScaler>();
-            canvasGO.AddComponent<GraphicRaycaster>();
-        }
-
-        private void EnsureEventSystem()
-        {
-            if (UnityEngine.Object.FindObjectOfType<EventSystem>() == null)
-            {
-                var esGO = new GameObject("EventSystem");
-                esGO.AddComponent<EventSystem>();
-                esGO.AddComponent<StandaloneInputModule>();
-            }
-        }
-
-        public void Cleanup()
-        {
-            foreach (var element in elements.Values)
-            {
-                if (element != null)
-                    UnityEngine.Object.Destroy(element);
-            }
-            elements.Clear();
-        }
     }
 
     #endregion
