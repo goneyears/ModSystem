@@ -19,6 +19,7 @@ namespace ExampleMods
         private object buttonObj;
         private object textObj;
         private object eventSystemObj;
+        private object modRootObject; // 模组根对象
 
         // 状态
         private int clickCount = 0;
@@ -27,6 +28,80 @@ namespace ExampleMods
         {
             base.OnInitialize(context);
             Context.Log("[ButtonMod] Initialized with reflection");
+
+            // 获取模组的GameObject作为父对象
+            modRootObject = GetModRootObject();
+        }
+
+        // 获取模组的根GameObject
+        private object GetModRootObject()
+        {
+            try
+            {
+                // 方法1：通过当前脚本所在的GameObject向上查找
+                // 这假设ButtonMod实例与某个Unity组件有关联
+                var currentType = this.GetType();
+
+                // 方法2：通过场景查找
+                var gameObjectType = FindType("GameObject");
+
+                // 首先尝试通过Find查找完整路径
+                var findMethod = gameObjectType.GetMethod("Find", new Type[] { typeof(string) });
+                if (findMethod != null)
+                {
+                    // 尝试不同的路径格式
+                    string[] possiblePaths = new[]
+                    {
+                        $"GameObject/Mods/Mod_{Context.ModId}_v1",
+                        $"GameObject/Mods/Mod_{Context.ModId}_v2",
+                        $"GameObject/Mods/Mod_{Context.ModId}_v3",
+                        $"Mods/Mod_{Context.ModId}_v1",
+                        $"Mods/Mod_{Context.ModId}_v2",
+                        $"Mods/Mod_{Context.ModId}_v3",
+                        $"Mod_{Context.ModId}_v1",
+                        $"Mod_{Context.ModId}_v2",
+                        $"Mod_{Context.ModId}_v3"
+                    };
+
+                    foreach (var path in possiblePaths)
+                    {
+                        var modObj = findMethod.Invoke(null, new object[] { path });
+                        if (modObj != null)
+                        {
+                            Context.Log($"[ButtonMod] Found mod root object at: {path}");
+                            return modObj;
+                        }
+                    }
+                }
+
+                // 方法3：通过FindObjectsOfType查找所有GameObject，然后筛选
+                var objectType = FindType("UnityEngine.Object");
+                var findObjectsMethod = objectType.GetMethod("FindObjectsOfType", new Type[] { typeof(Type) });
+                if (findObjectsMethod != null)
+                {
+                    var allGameObjects = findObjectsMethod.Invoke(null, new object[] { gameObjectType }) as Array;
+                    if (allGameObjects != null)
+                    {
+                        foreach (var go in allGameObjects)
+                        {
+                            var name = GetProperty(go, "name") as string;
+                            if (name != null && name.Contains($"Mod_{Context.ModId}"))
+                            {
+                                Context.Log($"[ButtonMod] Found mod root object by searching: {name}");
+                                return go;
+                            }
+                        }
+                    }
+                }
+
+                Context.LogError("[ButtonMod] Could not find mod root object, UI will be created at scene root");
+                return null;
+            }
+            catch (Exception ex)
+            {
+                Context.LogError($"[ButtonMod] Error getting mod root object: {ex.Message}");
+                return null;
+            }
         }
 
         public override void OnEnable()
@@ -69,6 +144,55 @@ namespace ExampleMods
             {
                 Context.Log("[ButtonMod] Verifying UI elements...");
 
+                // 检查模组根对象
+                if (modRootObject != null)
+                {
+                    var modRootName = GetProperty(modRootObject, "name");
+                    Context.Log($"[ButtonMod] Mod root object: {modRootName}");
+                }
+
+                // 检查EventSystem的父对象
+                if (eventSystemObj != null)
+                {
+                    var transform = GetProperty(eventSystemObj, "transform");
+                    var parent = GetProperty(transform, "parent");
+                    if (parent != null)
+                    {
+                        var parentGO = GetProperty(parent, "gameObject");
+                        var parentName = GetProperty(parentGO, "name");
+                        Context.Log($"[ButtonMod] EventSystem parent: {parentName}");
+                    }
+                    else
+                    {
+                        Context.Log("[ButtonMod] EventSystem has no parent (at scene root)");
+                    }
+                }
+
+                // 检查Canvas的父对象
+                if (canvasObj != null)
+                {
+                    var transform = GetProperty(canvasObj, "transform");
+                    var parent = GetProperty(transform, "parent");
+                    if (parent != null)
+                    {
+                        var parentGO = GetProperty(parent, "gameObject");
+                        var parentName = GetProperty(parentGO, "name");
+                        Context.Log($"[ButtonMod] Canvas parent: {parentName}");
+                    }
+                    else
+                    {
+                        Context.Log("[ButtonMod] Canvas has no parent (at scene root)");
+                    }
+
+                    var canvasType = FindType("Canvas");
+                    var canvas = GetComponent(canvasObj, canvasType);
+                    if (canvas != null)
+                    {
+                        var renderMode = GetProperty(canvas, "renderMode");
+                        Context.Log($"[ButtonMod] Canvas render mode: {renderMode}");
+                    }
+                }
+
                 // 检查按钮是否在正确的位置
                 if (buttonObj != null)
                 {
@@ -93,18 +217,6 @@ namespace ExampleMods
                         var sizeDelta = GetProperty(rectTransform, "sizeDelta");
                         var position = GetProperty(rectTransform, "anchoredPosition");
                         Context.Log($"[ButtonMod] Button size: {sizeDelta}, position: {position}");
-                    }
-                }
-
-                // 检查Canvas
-                if (canvasObj != null)
-                {
-                    var canvasType = FindType("Canvas");
-                    var canvas = GetComponent(canvasObj, canvasType);
-                    if (canvas != null)
-                    {
-                        var renderMode = GetProperty(canvas, "renderMode");
-                        Context.Log($"[ButtonMod] Canvas render mode: {renderMode}");
                     }
                 }
             }
@@ -165,7 +277,20 @@ namespace ExampleMods
                 }
 
                 Context.Log("[ButtonMod] Creating EventSystem...");
-                eventSystemObj = CreateInstance("GameObject", "EventSystem");
+                eventSystemObj = CreateInstance("GameObject", "ModEventSystem"); // 使用不同的名称以区分
+
+                // 设置父对象为模组根对象
+                if (modRootObject != null && eventSystemObj != null)
+                {
+                    var eventSystemTransform = GetProperty(eventSystemObj, "transform");
+                    var modRootTransform = GetProperty(modRootObject, "transform");
+                    SetParent(eventSystemTransform, modRootTransform, false);
+                    Context.Log("[ButtonMod] EventSystem created under mod root");
+                }
+                else
+                {
+                    Context.Log("[ButtonMod] EventSystem created at scene root (mod root not found)");
+                }
 
                 // 添加EventSystem组件
                 AddComponent(eventSystemObj, eventSystemType);
@@ -210,6 +335,19 @@ namespace ExampleMods
                 {
                     Context.LogError("[ButtonMod] Failed to create Canvas GameObject");
                     return;
+                }
+
+                // 设置父对象为模组根对象
+                if (modRootObject != null)
+                {
+                    var canvasTransform = GetProperty(canvasObj, "transform");
+                    var modRootTransform = GetProperty(modRootObject, "transform");
+                    SetParent(canvasTransform, modRootTransform, false);
+                    Context.Log("[ButtonMod] Canvas created under mod root");
+                }
+                else
+                {
+                    Context.Log("[ButtonMod] Canvas created at scene root (mod root not found)");
                 }
 
                 // 添加Canvas组件
@@ -381,7 +519,7 @@ namespace ExampleMods
                     SetProperty(rectTransform, "pivot", half);
 
                     // 设置大小
-                    var sizeDelta = Activator.CreateInstance(vector2Type, 200f, 50f);
+                    var sizeDelta = Activator.CreateInstance(vector2Type, 200f, 150f);
                     SetProperty(rectTransform, "sizeDelta", sizeDelta);
 
                     // 设置位置（屏幕中心）
