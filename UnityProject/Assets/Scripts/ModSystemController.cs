@@ -1,82 +1,113 @@
-// ModSystem.Unity/ModSystemController.cs
+// UnityProject/Assets/Scripts/ModSystemController.cs
+using System;
+using System.Collections.Generic;
+using System.IO;
+using System.Linq;
+using System.Threading.Tasks;
 using UnityEngine;
 using ModSystem.Core;
-using System.IO;
-using System.Threading.Tasks;
-using System;
 
 namespace ModSystem.Unity
 {
     /// <summary>
-    /// Unity模组系统主控制器
-    /// 负责初始化和管理整个模组系统，作为Unity和Core层之间的桥梁
+    /// 模组系统控制器
+    /// Unity中模组系统的主入口点
     /// </summary>
     [AddComponentMenu("ModSystem/Mod System Controller")]
-    [DisallowMultipleComponent]
     public class ModSystemController : MonoBehaviour
     {
         #region Singleton
         private static ModSystemController instance;
         
         /// <summary>
-        /// 获取ModSystemController单例实例
+        /// 获取控制器单例
         /// </summary>
-        public static ModSystemController Instance
-        {
-            get
-            {
-                if (instance == null)
-                {
-                    instance = FindObjectOfType<ModSystemController>();
-                    if (instance == null)
-                    {
-                        GameObject go = new GameObject("ModSystemController");
-                        instance = go.AddComponent<ModSystemController>();
-                        DontDestroyOnLoad(go);
-                    }
-                }
-                return instance;
-            }
-        }
+        public static ModSystemController Instance => instance;
         #endregion
 
-        #region Core Components
+        #region Inspector Fields
+        [Header("Configuration")]
+        [SerializeField] private string modsPath = "Mods";
+        [SerializeField] private string configPath = "ModConfigs";
+        [SerializeField] private bool autoLoadMods = true;
+        [SerializeField] private bool debugMode = false;
+        
+        [Header("Hot Reload Settings")]
+        [SerializeField] private bool enableHotReload = true;
+        [SerializeField] private KeyCode reloadKey = KeyCode.F5;
+        [SerializeField] private KeyCode toggleDebugKey = KeyCode.F12;
+        [SerializeField] private float reloadCheckInterval = 1.0f;
+        
+        [Header("Performance")]
+        [SerializeField] private int maxConcurrentLoads = 3;
+        [SerializeField] private float modUpdateInterval = 0f;
+        
+        [Header("UI Settings")]
+        [SerializeField] private Canvas uiCanvas;
+        [SerializeField] private bool createUICanvas = true;
+        
+        [Header("Runtime Info")]
+        [SerializeField] private int loadedModsCount = 0;
+        [SerializeField] private List<string> loadedModIds = new List<string>();
+        #endregion
+
+        #region Private Fields
         private ModManagerCore modManagerCore;
-        private ModEventBus eventBus;
-        private ModServiceRegistry serviceRegistry;
-        private CommunicationRouter router;
+        private ModManager modManager;
+        private ModUIFactory uiFactory;
+        private UnityObjectFactory objectFactory;
         private UnityLogger logger;
         private UnityPathProvider pathProvider;
-        private RequestResponseManager requestResponseManager;
+        private IEventBus eventBus;
+        private SecurityManager securityManager;
+        private bool isInitialized;
+        private float lastReloadCheck = 0;
         #endregion
 
         #region Properties
         /// <summary>
-        /// 获取事件总线实例
-        /// </summary>
-        public IEventBus EventBus => eventBus;
-        
-        /// <summary>
-        /// 获取服务注册表实例
-        /// </summary>
-        public IServiceRegistry ServiceRegistry => serviceRegistry;
-        
-        /// <summary>
-        /// 获取模组管理器核心实例
+        /// 获取模组管理器核心
         /// </summary>
         public ModManagerCore ModManagerCore => modManagerCore;
         
         /// <summary>
-        /// 获取请求响应管理器
+        /// 获取Unity模组管理器
         /// </summary>
-        public IRequestResponseManager RequestResponseManager => requestResponseManager;
+        public ModManager ModManager => modManager;
+        
+        /// <summary>
+        /// 获取UI工厂
+        /// </summary>
+        public ModUIFactory UIFactory => uiFactory;
+        
+        /// <summary>
+        /// 获取对象工厂
+        /// </summary>
+        public UnityObjectFactory ObjectFactory => objectFactory;
+        
+        /// <summary>
+        /// 获取事件总线
+        /// </summary>
+        public IEventBus EventBus => eventBus;
+        
+        /// <summary>
+        /// 获取日志记录器
+        /// </summary>
+        public ILogger Logger => logger;
+        
+        /// <summary>
+        /// 获取是否已初始化
+        /// </summary>
+        public bool IsInitialized => isInitialized;
         #endregion
 
         #region Unity Lifecycle
         void Awake()
         {
+            // 设置单例
             if (instance != null && instance != this)
             {
+                Debug.LogWarning("[ModSystemController] Multiple instances detected, destroying duplicate");
                 Destroy(gameObject);
                 return;
             }
@@ -84,37 +115,54 @@ namespace ModSystem.Unity
             instance = this;
             DontDestroyOnLoad(gameObject);
             
+            // 初始化系统
             InitializeSystem();
         }
         
-        void Start()
+        async void Start()
         {
-            // 异步加载模组
-            LoadModsAsync();
+            if (autoLoadMods && isInitialized)
+            {
+                await LoadAllMods();
+            }
         }
         
         void Update()
         {
-            // 更新所有活动的模组
-            if (modManagerCore != null)
-            {
-                modManagerCore.UpdateMods(Time.deltaTime);
-            }
-        }
-        
-        void OnDestroy()
-        {
-            CleanupSystem();
+            if (!isInitialized) return;
             
-            if (instance == this)
+            // 热键处理
+            if (enableHotReload && Input.GetKeyDown(reloadKey))
             {
-                instance = null;
+                ReloadMods();
+            }
+            
+            if (Input.GetKeyDown(toggleDebugKey))
+            {
+                debugMode = !debugMode;
+                logger.Log($"Debug mode: {debugMode}");
+            }
+            
+            // 自动重载检查（开发模式）
+            #if UNITY_EDITOR
+            if (enableHotReload && debugMode && Time.time - lastReloadCheck > reloadCheckInterval)
+            {
+                lastReloadCheck = Time.time;
+                CheckForModChanges();
+            }
+            #endif
+            
+            // 更新模组
+            if (modUpdateInterval <= 0 || Time.frameCount % Mathf.Max(1, Mathf.RoundToInt(modUpdateInterval * 60)) == 0)
+            {
+                modManagerCore?.UpdateMods(Time.deltaTime);
             }
         }
         
         void OnApplicationPause(bool pauseStatus)
         {
-            // 处理应用暂停/恢复
+            if (!isInitialized) return;
+            
             if (pauseStatus)
             {
                 PauseAllMods();
@@ -127,9 +175,21 @@ namespace ModSystem.Unity
         
         void OnApplicationQuit()
         {
-            // 保存状态并清理资源
-            SaveModStates();
+            if (!isInitialized) return;
+            
+            logger?.Log("[ModSystemController] Application quitting, unloading mods");
             UnloadAllMods();
+        }
+        
+        void OnDestroy()
+        {
+            if (instance == this)
+            {
+                instance = null;
+            }
+            
+            // 清理资源
+            Cleanup();
         }
         #endregion
 
@@ -141,115 +201,146 @@ namespace ModSystem.Unity
         {
             try
             {
-                // 创建Unity实现
-                logger = new UnityLogger("[ModSystem]");
-                pathProvider = new UnityPathProvider();
+                // 创建基础组件
+                logger = new UnityLogger("[ModSystem] ");
+                pathProvider = new UnityPathProvider(modsPath, configPath);
+                eventBus = new EventBus(logger);
                 
-                // 初始化核心组件
-                var eventLogger = new UnityEventLogger();
-                eventBus = new ModEventBus(eventLogger);
-                serviceRegistry = new ModServiceRegistry(eventBus, logger);
-                requestResponseManager = new RequestResponseManager(eventBus);
+                // 创建安全管理器
+                var securityConfig = LoadSecurityConfig();
+                securityManager = new SecurityManager(securityConfig, logger);
                 
-                // 创建核心模组管理器
-                modManagerCore = new ModManagerCore(logger, pathProvider, eventBus, serviceRegistry);
+                // 创建核心管理器
+                modManagerCore = new ModManagerCore(logger, pathProvider, eventBus);
                 
-                // 创建Unity包装器
-                var modManager = gameObject.AddComponent<ModManager>();
-                modManager.Initialize(modManagerCore);
+                // 创建Unity层工厂
+                CreateFactories();
                 
-                // 加载配置
-                LoadConfigurations();
+                // 创建Unity层管理器
+                modManager = gameObject.AddComponent<ModManager>();
+                modManager.Initialize(modManagerCore, uiFactory, objectFactory);
                 
-                logger.Log("ModSystem initialized successfully");
+                // 订阅事件
+                SubscribeToEvents();
+                
+                // 更新运行时信息
+                UpdateRuntimeInfo();
+                
+                isInitialized = true;
+                logger.Log("System initialized successfully");
             }
             catch (Exception ex)
             {
-                Debug.LogError($"Failed to initialize ModSystem: {ex}");
-                enabled = false;
+                Debug.LogError($"[ModSystemController] Failed to initialize: {ex}");
+                isInitialized = false;
             }
         }
         
         /// <summary>
-        /// 加载系统配置
+        /// 创建工厂实例
         /// </summary>
-        private void LoadConfigurations()
+        private void CreateFactories()
         {
-            // 加载通信配置
-            LoadCommunicationConfig();
+            // 创建或查找UI画布
+            if (createUICanvas && uiCanvas == null)
+            {
+                var canvasObj = new GameObject("ModSystemCanvas");
+                canvasObj.transform.SetParent(transform);
+                uiCanvas = canvasObj.AddComponent<Canvas>();
+                uiCanvas.renderMode = RenderMode.ScreenSpaceOverlay;
+                uiCanvas.sortingOrder = 100;
+                
+                // 添加必要的UI组件
+                canvasObj.AddComponent<UnityEngine.UI.CanvasScaler>();
+                canvasObj.AddComponent<UnityEngine.UI.GraphicRaycaster>();
+            }
             
-            // 加载安全配置
-            LoadSecurityConfig();
+            // 创建工厂
+            if (uiCanvas != null)
+            {
+                uiFactory = new ModUIFactory(uiCanvas, logger);
+            }
             
-            // 加载系统设置
-            LoadSystemSettings();
+            objectFactory = new UnityObjectFactory(logger);
         }
         
         /// <summary>
-        /// 加载通信配置
+        /// 订阅系统事件
         /// </summary>
-        private void LoadCommunicationConfig()
+        private void SubscribeToEvents()
         {
-            string configPath = Path.Combine(pathProvider.GetConfigPath(), "communication_config.json");
-            
-            if (File.Exists(configPath))
-            {
-                try
-                {
-                    string configJson = File.ReadAllText(configPath);
-                    router = new CommunicationRouter(eventBus, configJson, logger);
-                    logger.Log("Communication config loaded");
-                }
-                catch (Exception ex)
-                {
-                    logger.LogError($"Failed to load communication config: {ex.Message}");
-                }
-            }
-            else
-            {
-                logger.LogWarning("Communication config not found, using defaults");
-            }
+            eventBus.Subscribe<ModLoadedEvent>(OnModLoaded);
+            eventBus.Subscribe<ModUnloadedEvent>(OnModUnloaded);
+            eventBus.Subscribe<ModErrorEvent>(OnModError);
         }
         
         /// <summary>
         /// 加载安全配置
         /// </summary>
-        private void LoadSecurityConfig()
+        private SecurityConfig LoadSecurityConfig()
         {
-            string configPath = Path.Combine(pathProvider.GetConfigPath(), "security_config.json");
+            var configPath = Path.Combine(pathProvider.GetConfigPath(), "security.json");
             
-            if (!File.Exists(configPath))
+            if (File.Exists(configPath))
             {
-                // 创建默认配置
-                CreateDefaultSecurityConfig(configPath);
+                try
+                {
+                    var json = File.ReadAllText(configPath);
+                    return Newtonsoft.Json.JsonConvert.DeserializeObject<SecurityConfig>(json);
+                }
+                catch (Exception ex)
+                {
+                    logger?.LogError($"Failed to load security config: {ex.Message}");
+                }
             }
-        }
-        
-        /// <summary>
-        /// 加载系统设置
-        /// </summary>
-        private void LoadSystemSettings()
-        {
-            // 从PlayerPrefs或配置文件加载设置
-            // 例如：调试模式、性能设置等
+            
+            // 返回默认配置
+            return new SecurityConfig
+            {
+                RequireSignedMods = false,
+                AllowedModPaths = new[] { pathProvider.GetModsPath() },
+                MaxModSize = 100 * 1024 * 1024 // 100MB
+            };
         }
         #endregion
 
         #region Mod Loading
         /// <summary>
-        /// 异步加载所有模组
+        /// 加载所有模组
         /// </summary>
-        private async void LoadModsAsync()
+        private async Task LoadAllMods()
         {
+            logger.Log("Loading all mods...");
+            
             try
             {
-                logger.Log("Starting mod loading...");
-                
                 // 加载内置模组
                 await LoadBuiltInMods();
                 
                 // 加载开发中的模组
-                await modManagerCore.LoadModsFromDirectory(pathProvider.GetModsPath());
+                var modsPath = pathProvider.GetModsPath();
+                if (Directory.Exists(modsPath))
+                {
+                    var modDirs = Directory.GetDirectories(modsPath);
+                    logger.Log($"Found {modDirs.Length} mod directories");
+                    
+                    // 限制并发加载
+                    var loadTasks = new List<Task>();
+                    var semaphore = new System.Threading.SemaphoreSlim(maxConcurrentLoads);
+                    
+                    foreach (var modDir in modDirs)
+                    {
+                        var task = LoadModWithConcurrencyControl(modDir, semaphore);
+                        loadTasks.Add(task);
+                    }
+                    
+                    await Task.WhenAll(loadTasks);
+                }
+                else
+                {
+                    logger.LogWarning($"Mods directory not found: {modsPath}");
+                    Directory.CreateDirectory(modsPath);
+                }
                 
                 // 加载外部模组包
                 string packagePath = Path.Combine(Application.streamingAssetsPath, "ModPackages");
@@ -271,12 +362,89 @@ namespace ModSystem.Unity
         }
         
         /// <summary>
+        /// 使用并发控制加载模组
+        /// </summary>
+        private async Task LoadModWithConcurrencyControl(string modDir, System.Threading.SemaphoreSlim semaphore)
+        {
+            await semaphore.WaitAsync();
+            
+            try
+            {
+                if (enableHotReload)
+                {
+                    await modManager.LoadAndActivateMod(modDir);
+                }
+                else
+                {
+                    await modManagerCore.LoadMod(modDir);
+                }
+            }
+            catch (Exception ex)
+            {
+                logger.LogError($"Failed to load mod from {modDir}: {ex.Message}");
+            }
+            finally
+            {
+                semaphore.Release();
+            }
+        }
+        
+        /// <summary>
         /// 加载内置模组
         /// </summary>
         private async Task LoadBuiltInMods()
         {
             // 这里可以加载一些系统必需的内置模组
             await Task.CompletedTask;
+        }
+        
+        /// <summary>
+        /// 重载所有模组
+        /// </summary>
+        private async void ReloadMods()
+        {
+            logger.Log("Reloading all mods...");
+            
+            // 保存当前加载的模组列表
+            var currentMods = modManagerCore.GetLoadedMods()
+                .Select(m => m.LoadedMod.RootPath)
+                .ToList();
+            
+            // 卸载所有模组
+            if (modManager != null)
+            {
+                modManager.UnloadAllMods();
+            }
+            
+            // 等待一帧，确保对象被销毁
+            await Task.Yield();
+            
+            // 重新加载所有模组
+            foreach (var modPath in currentMods)
+            {
+                try
+                {
+                    await modManager.LoadAndActivateMod(modPath);
+                }
+                catch (Exception ex)
+                {
+                    logger.LogError($"Failed to reload mod from {modPath}: {ex.Message}");
+                }
+            }
+            
+            // 更新运行时信息
+            UpdateRuntimeInfo();
+            
+            logger.Log("Mods reloaded");
+        }
+        
+        /// <summary>
+        /// 检查模组变化（可选实现）
+        /// </summary>
+        private void CheckForModChanges()
+        {
+            // 这里可以实现文件监控，检测DLL变化自动重载
+            // 为了简单起见，暂时不实现
         }
         #endregion
 
@@ -329,155 +497,135 @@ namespace ModSystem.Unity
         }
         
         /// <summary>
-        /// 保存模组状态
+        /// 更新运行时信息
         /// </summary>
-        private void SaveModStates()
+        private void UpdateRuntimeInfo()
         {
-            // 实现模组状态持久化
+            var loadedMods = modManagerCore.GetLoadedMods().ToList();
+            loadedModsCount = loadedMods.Count;
+            loadedModIds = loadedMods.Select(m => m.LoadedMod.Manifest.id).ToList();
+        }
+        #endregion
+
+        #region Event Handlers
+        /// <summary>
+        /// 处理模组加载事件
+        /// </summary>
+        private void OnModLoaded(ModLoadedEvent e)
+        {
+            logger.Log($"Mod loaded: {e.ModName} v{e.Version}");
+            UpdateRuntimeInfo();
+        }
+        
+        /// <summary>
+        /// 处理模组卸载事件
+        /// </summary>
+        private void OnModUnloaded(ModUnloadedEvent e)
+        {
+            logger.Log($"Mod unloaded: {e.ModId}");
+            UpdateRuntimeInfo();
+        }
+        
+        /// <summary>
+        /// 处理模组错误事件
+        /// </summary>
+        private void OnModError(ModErrorEvent e)
+        {
+            logger.LogError($"Mod error in {e.ModId}: {e.Message}");
+        }
+        #endregion
+
+        #region Public API
+        /// <summary>
+        /// 手动加载指定模组
+        /// </summary>
+        public async Task<bool> LoadMod(string modPath)
+        {
             try
             {
-                var states = new ModSystemState
+                if (enableHotReload)
                 {
-                    SaveTime = DateTime.Now,
-                    LoadedMods = modManagerCore.GetLoadedMods()
-                        .Select(m => new ModStateInfo
-                        {
-                            ModId = m.LoadedMod.Manifest.id,
-                            Version = m.LoadedMod.Manifest.version,
-                            State = m.State
-                        }).ToList()
-                };
+                    await modManager.LoadAndActivateMod(modPath);
+                }
+                else
+                {
+                    await modManagerCore.LoadMod(modPath);
+                }
                 
-                string json = Newtonsoft.Json.JsonConvert.SerializeObject(states, Newtonsoft.Json.Formatting.Indented);
-                string savePath = Path.Combine(pathProvider.GetPersistentDataPath(), "mod_states.json");
-                File.WriteAllText(savePath, json);
-                
-                logger.Log("Mod states saved");
+                UpdateRuntimeInfo();
+                return true;
             }
             catch (Exception ex)
             {
-                logger.LogError($"Failed to save mod states: {ex.Message}");
+                logger.LogError($"Failed to load mod: {ex.Message}");
+                return false;
             }
+        }
+        
+        /// <summary>
+        /// 卸载指定模组
+        /// </summary>
+        public void UnloadMod(string modId)
+        {
+            modManager.UnloadMod(modId);
+            UpdateRuntimeInfo();
+        }
+        
+        /// <summary>
+        /// 获取已加载的模组数量
+        /// </summary>
+        public int GetLoadedModCount()
+        {
+            return loadedModsCount;
+        }
+        
+        /// <summary>
+        /// 获取已加载的模组ID列表
+        /// </summary>
+        public List<string> GetLoadedModIds()
+        {
+            return new List<string>(loadedModIds);
+        }
+        
+        /// <summary>
+        /// 获取模组信息
+        /// </summary>
+        public ModInstance GetModInfo(string modId)
+        {
+            return modManagerCore.GetModInstance(modId);
+        }
+        
+        /// <summary>
+        /// 发布全局事件
+        /// </summary>
+        public void PublishEvent<T>(T eventData) where T : IModEvent
+        {
+            eventBus.Publish(eventData);
+        }
+        
+        /// <summary>
+        /// 切换调试模式
+        /// </summary>
+        public void ToggleDebugMode()
+        {
+            debugMode = !debugMode;
+            logger.Log($"Debug mode: {debugMode}");
         }
         #endregion
 
         #region Cleanup
         /// <summary>
-        /// 清理系统资源
+        /// 清理资源
         /// </summary>
-        private void CleanupSystem()
+        private void Cleanup()
         {
-            // 清理事件订阅
-            if (requestResponseManager != null)
+            if (eventBus != null)
             {
-                requestResponseManager.Dispose();
+                eventBus.UnsubscribeAll(this);
             }
             
-            // 清理临时文件
-            CleanupTempFiles();
-            
-            logger?.Log("ModSystem cleaned up");
-        }
-        
-        /// <summary>
-        /// 清理临时文件
-        /// </summary>
-        private void CleanupTempFiles()
-        {
-            try
-            {
-                string tempPath = pathProvider.GetTempPath();
-                if (Directory.Exists(tempPath))
-                {
-                    Directory.Delete(tempPath, true);
-                }
-            }
-            catch (Exception ex)
-            {
-                logger?.LogError($"Failed to cleanup temp files: {ex.Message}");
-            }
-        }
-        #endregion
-
-        #region Helper Methods
-        /// <summary>
-        /// 创建默认安全配置
-        /// </summary>
-        private void CreateDefaultSecurityConfig(string path)
-        {
-            var defaultConfig = new SecurityConfig
-            {
-                RequireSignedMods = false, // 开发环境默认不需要签名
-                AllowedModPaths = new List<string> { pathProvider.GetModsPath() }
-            };
-            
-            try
-            {
-                string json = Newtonsoft.Json.JsonConvert.SerializeObject(defaultConfig, Newtonsoft.Json.Formatting.Indented);
-                Directory.CreateDirectory(Path.GetDirectoryName(path));
-                File.WriteAllText(path, json);
-            }
-            catch (Exception ex)
-            {
-                logger.LogError($"Failed to create default security config: {ex.Message}");
-            }
+            // 其他清理操作
         }
         #endregion
     }
-
-    #region Event Definitions
-    /// <summary>
-    /// 系统就绪事件
-    /// </summary>
-    public class SystemReadyEvent : IModEvent
-    {
-        public string EventId => "system_ready";
-        public string SenderId { get; set; }
-        public DateTime Timestamp { get; set; }
-        public int LoadedModCount { get; set; }
-    }
-    
-    /// <summary>
-    /// 模组系统暂停事件
-    /// </summary>
-    public class ModSystemPausedEvent : IModEvent
-    {
-        public string EventId => "modsystem_paused";
-        public string SenderId { get; set; }
-        public DateTime Timestamp { get; set; }
-    }
-    
-    /// <summary>
-    /// 模组系统恢复事件
-    /// </summary>
-    public class ModSystemResumedEvent : IModEvent
-    {
-        public string EventId => "modsystem_resumed";
-        public string SenderId { get; set; }
-        public DateTime Timestamp { get; set; }
-    }
-    #endregion
-
-    #region Data Structures
-    /// <summary>
-    /// 模组系统状态
-    /// </summary>
-    [Serializable]
-    public class ModSystemState
-    {
-        public DateTime SaveTime { get; set; }
-        public List<ModStateInfo> LoadedMods { get; set; }
-    }
-    
-    /// <summary>
-    /// 模组状态信息
-    /// </summary>
-    [Serializable]
-    public class ModStateInfo
-    {
-        public string ModId { get; set; }
-        public string Version { get; set; }
-        public ModState State { get; set; }
-    }
-    #endregion
-} 
+}

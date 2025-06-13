@@ -13,7 +13,12 @@ namespace ModSystem.Core
         /// 加载的模组数据
         /// </summary>
         public LoadedMod LoadedMod { get; set; }
-        
+
+        /// <summary>
+        /// IMod行为实例
+        /// </summary>
+        public IMod ModBehaviour { get; set; }
+
         /// <summary>
         /// 模组状态
         /// </summary>

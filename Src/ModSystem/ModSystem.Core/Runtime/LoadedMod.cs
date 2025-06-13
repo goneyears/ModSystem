@@ -37,5 +37,15 @@ namespace ModSystem.Core
         /// 是否为临时模组
         /// </summary>
         public bool IsTemporary { get; set; }
+
+        /// <summary>
+        /// IMod实例（用于新的简化接口）
+        /// </summary>
+        public IMod ModInstance { get; set; }
+
+        /// <summary>
+        /// 加载版本号（用于热重载）
+        /// </summary>
+        public int LoadVersion { get; set; }
     }
 } 

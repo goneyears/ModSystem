@@ -64,7 +64,7 @@ namespace ModSystem.Core
                 handlers[eventType].Add(new EventHandler
                 {
                     Handler = handler,
-                    Filter = filter != null ? e => filter((T)e) : null,
+                    Filter = filter != null ? e => filter((T)e) : (Predicate<IModEvent>)null,
                     SubscriberId = handler.Target?.GetType().Name ?? "Anonymous",
                     TargetRef = handler.Target != null ? new WeakReference(handler.Target) : null
                 });
