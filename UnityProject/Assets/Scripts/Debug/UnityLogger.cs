@@ -60,32 +60,4 @@ namespace ModSystem.Unity
         }
     }
     
-    /// <summary>
-    /// Unity路径提供器
-    /// </summary>
-    public class UnityPathProvider : IPathProvider
-    {
-        private readonly string modsPath;
-        private readonly string configPath;
-        
-        public UnityPathProvider(string modsPath = "Mods", string configPath = "ModConfigs")
-        {
-            this.modsPath = modsPath;
-            this.configPath = configPath;
-        }
-        
-        public string GetModsPath()
-        {
-            #if UNITY_EDITOR
-            return System.IO.Path.Combine(Application.dataPath, modsPath);
-            #else
-            return System.IO.Path.Combine(Application.persistentDataPath, modsPath);
-            #endif
-        }
-        
-        public string GetConfigPath()
-        {
-            return System.IO.Path.Combine(Application.streamingAssetsPath, configPath);
-        }
-    }
 }

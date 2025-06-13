@@ -1,4 +1,4 @@
-/ UnityProject/Assets/Scripts/ModManager.cs
+// UnityProject/Assets/Scripts/ModManager.cs
 using System;
 using System.Collections.Generic;
 using System.Linq;

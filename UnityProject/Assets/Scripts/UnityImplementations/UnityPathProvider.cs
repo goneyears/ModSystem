@@ -19,25 +19,28 @@ namespace ModSystem.Unity
         #endregion
 
         #region IPathProvider Implementation
-        /// <summary>
-        /// 获取模组存放路径
-        /// </summary>
-        public string GetModsPath()
+
+        private readonly string modsPath;
+        private readonly string configPath;
+        
+        public UnityPathProvider(string modsPath = "Mods", string configPath = "ModConfigs")
         {
-            // 在编辑器中使用StreamingAssets，在运行时使用持久化路径
+            this.modsPath = modsPath;
+            this.configPath = configPath;
+        }
+
+         public string GetModsPath()
+        {
             #if UNITY_EDITOR
-            return Path.Combine(Application.streamingAssetsPath, MODS_FOLDER);
+            return System.IO.Path.Combine(Application.dataPath, modsPath);
             #else
-            return Path.Combine(Application.persistentDataPath, MODS_FOLDER);
+            return System.IO.Path.Combine(Application.persistentDataPath, modsPath);
             #endif
         }
         
-        /// <summary>
-        /// 获取配置文件路径
-        /// </summary>
         public string GetConfigPath()
         {
-            return Path.Combine(Application.streamingAssetsPath, CONFIG_FOLDER);
+            return System.IO.Path.Combine(Application.streamingAssetsPath, configPath);
         }
         
         /// <summary>
