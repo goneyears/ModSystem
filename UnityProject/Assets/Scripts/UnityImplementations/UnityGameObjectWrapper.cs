@@ -54,7 +54,7 @@ namespace ModSystem.Unity
         /// <summary>
         /// 获取或设置对象是否启用
         /// </summary>
-        public bool IsEnabled
+        public bool IsActive
         {
             get => gameObject.activeSelf;
             set => gameObject.SetActive(value);

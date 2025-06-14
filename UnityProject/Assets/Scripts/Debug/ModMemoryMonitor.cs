@@ -34,12 +34,20 @@ namespace ModSystem.Unity.Debug
         #region Private Fields
         private Dictionary<string, MemoryStats> modMemoryStats = new Dictionary<string, MemoryStats>();
         private float lastUpdateTime;
-        private GCMemoryInfo lastGCInfo;
+        //private GCMemoryInfo lastGCInfo;
         private long baselineMemory;
         private Vector2 scrollPosition;
         private Tab currentTab = Tab.Overview;
         #endregion
-
+        private void UpdateMemoryStats()
+        {
+            // 使用Unity Profiler API
+            long totalMemory = Profiler.GetTotalAllocatedMemoryLong();
+            long reservedMemory = Profiler.GetTotalReservedMemoryLong();
+            long gcMemory = GC.GetTotalMemory(false);
+            
+            // 其他监控逻辑...
+        }
         #region Enums
         private enum Tab
         {

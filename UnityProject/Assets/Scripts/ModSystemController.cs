@@ -6,7 +6,8 @@ using System.Linq;
 using System.Threading.Tasks;
 using UnityEngine;
 using ModSystem.Core;
-
+// 使用别名解决歧义
+using IModLogger = ModSystem.Core.ILogger;
 namespace ModSystem.Unity
 {
     /// <summary>
@@ -56,7 +57,6 @@ namespace ModSystem.Unity
         private ModManager modManager;
         private ModUIFactory uiFactory;
         private UnityObjectFactory objectFactory;
-        private UnityLogger logger;
         private UnityPathProvider pathProvider;
         private IEventBus eventBus;
         private SecurityManager securityManager;
@@ -93,7 +93,7 @@ namespace ModSystem.Unity
         /// <summary>
         /// 获取日志记录器
         /// </summary>
-        public ILogger Logger => logger;
+        private IModLogger logger; // 使用别名
         
         /// <summary>
         /// 获取是否已初始化
