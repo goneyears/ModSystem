@@ -1,7 +1,14 @@
-// ModSystem.Unity/UnityImplementations/UnityGameObjectWrapper.cs
+// UnityProject/Assets/Scripts/UnityImplementations/UnityGameObjectWrapper.cs
+// 在文件顶部添加别名来区分不同的类型
 using UnityEngine;
 using ModSystem.Core;
 using System;
+
+// 使用别名来明确区分
+using CoreVector3 = ModSystem.Core.Vector3;
+using UnityVector3 = UnityEngine.Vector3;
+using CoreQuaternion = ModSystem.Core.Quaternion;
+using UnityQuaternion = UnityEngine.Quaternion;
 
 namespace ModSystem.Unity
 {
@@ -78,11 +85,21 @@ namespace ModSystem.Unity
         /// </summary>
         public T AddComponent<T>() where T : class
         {
-            // 这里需要处理类型转换和适配
-            if (typeof(MonoBehaviour).IsAssignableFrom(typeof(T)))
+            var componentType = typeof(T);
+            
+            // 如果T是Unity的组件类型，直接添加
+            if (componentType.IsSubclassOf(typeof(Component)))
             {
-                return gameObject.AddComponent(typeof(T)) as T;
+                return gameObject.AddComponent(componentType) as T;
             }
+            
+            // 如果T是接口，尝试找到对应的Unity实现
+            if (componentType.IsInterface)
+            {
+                // 这里可以添加接口到Unity组件的映射逻辑
+                return null;
+            }
+            
             return null;
         }
         
@@ -91,11 +108,21 @@ namespace ModSystem.Unity
         /// </summary>
         public T GetComponent<T>() where T : class
         {
-            // 这里需要处理类型转换和适配
-            if (typeof(MonoBehaviour).IsAssignableFrom(typeof(T)))
+            var componentType = typeof(T);
+            
+            // 如果T是Unity的组件类型，直接获取
+            if (componentType.IsSubclassOf(typeof(Component)))
             {
-                return gameObject.GetComponent(typeof(T)) as T;
+                return gameObject.GetComponent(componentType) as T;
             }
+            
+            // 如果T是接口，尝试找到对应的Unity实现
+            if (componentType.IsInterface)
+            {
+                // 这里可以添加接口到Unity组件的映射逻辑
+                return null;
+            }
+            
             return null;
         }
         
@@ -104,11 +131,15 @@ namespace ModSystem.Unity
         /// </summary>
         public T[] GetComponents<T>() where T : class
         {
-            // 这里需要处理类型转换和适配
-            if (typeof(MonoBehaviour).IsAssignableFrom(typeof(T)))
+            var componentType = typeof(T);
+            
+            // 如果T是Unity的组件类型，直接获取
+            if (componentType.IsSubclassOf(typeof(Component)))
             {
-                return gameObject.GetComponents(typeof(T)) as T[];
+                var components = gameObject.GetComponents(componentType);
+                return System.Array.ConvertAll(components, c => c as T);
             }
+            
             return new T[0];
         }
         
@@ -117,33 +148,11 @@ namespace ModSystem.Unity
         /// </summary>
         public void Destroy()
         {
-            UnityEngine.Object.Destroy(gameObject);
-        }
-        #endregion
-
-        #region Comparison
-        /// <summary>
-        /// 判断对象是否相等
-        /// </summary>
-        public override bool Equals(object obj)
-        {
-            if (obj is UnityGameObjectWrapper other)
-            {
-                return gameObject == other.gameObject;
-            }
-            return false;
-        }
-        
-        /// <summary>
-        /// 获取哈希码
-        /// </summary>
-        public override int GetHashCode()
-        {
-            return gameObject.GetHashCode();
+            Object.Destroy(gameObject);
         }
         #endregion
     }
-
+    
     /// <summary>
     /// Unity Transform的包装器，实现ITransform接口
     /// </summary>
@@ -168,32 +177,32 @@ namespace ModSystem.Unity
         /// <summary>
         /// 获取或设置位置
         /// </summary>
-        public Vector3 Position
+        public CoreVector3 Position
         {
-            get => new Vector3(transform.position.x, transform.position.y, transform.position.z);
-            set => transform.position = new UnityEngine.Vector3(value.X, value.Y, value.Z);
+            get => new CoreVector3(transform.position.x, transform.position.y, transform.position.z);
+            set => transform.position = new UnityVector3(value.X, value.Y, value.Z);
         }
         
         /// <summary>
         /// 获取或设置旋转
         /// </summary>
-        public Quaternion Rotation
+        public CoreQuaternion Rotation
         {
             get
             {
                 var rot = transform.rotation;
-                return new Quaternion(rot.x, rot.y, rot.z, rot.w);
+                return new CoreQuaternion(rot.x, rot.y, rot.z, rot.w);
             }
-            set => transform.rotation = new UnityEngine.Quaternion(value.X, value.Y, value.Z, value.W);
+            set => transform.rotation = new UnityQuaternion(value.X, value.Y, value.Z, value.W);
         }
         
         /// <summary>
         /// 获取或设置缩放
         /// </summary>
-        public Vector3 Scale
+        public CoreVector3 Scale
         {
-            get => new Vector3(transform.localScale.x, transform.localScale.y, transform.localScale.z);
-            set => transform.localScale = new UnityEngine.Vector3(value.X, value.Y, value.Z);
+            get => new CoreVector3(transform.localScale.x, transform.localScale.y, transform.localScale.z);
+            set => transform.localScale = new UnityVector3(value.X, value.Y, value.Z);
         }
         
         /// <summary>
@@ -223,17 +232,17 @@ namespace ModSystem.Unity
         /// <summary>
         /// 获取前方向
         /// </summary>
-        public Vector3 Forward => new Vector3(transform.forward.x, transform.forward.y, transform.forward.z);
+        public CoreVector3 Forward => new CoreVector3(transform.forward.x, transform.forward.y, transform.forward.z);
         
         /// <summary>
         /// 获取上方向
         /// </summary>
-        public Vector3 Up => new Vector3(transform.up.x, transform.up.y, transform.up.z);
+        public CoreVector3 Up => new CoreVector3(transform.up.x, transform.up.y, transform.up.z);
         
         /// <summary>
         /// 获取右方向
         /// </summary>
-        public Vector3 Right => new Vector3(transform.right.x, transform.right.y, transform.right.z);
+        public CoreVector3 Right => new CoreVector3(transform.right.x, transform.right.y, transform.right.z);
         #endregion
 
         #region Methods
@@ -262,37 +271,37 @@ namespace ModSystem.Unity
         /// <summary>
         /// 设置位置和旋转
         /// </summary>
-        public void SetPositionAndRotation(Vector3 position, Quaternion rotation)
+        public void SetPositionAndRotation(CoreVector3 position, CoreQuaternion rotation)
         {
             transform.SetPositionAndRotation(
-                new UnityEngine.Vector3(position.X, position.Y, position.Z),
-                new UnityEngine.Quaternion(rotation.X, rotation.Y, rotation.Z, rotation.W)
+                new UnityVector3(position.X, position.Y, position.Z),
+                new UnityQuaternion(rotation.X, rotation.Y, rotation.Z, rotation.W)
             );
         }
         
         /// <summary>
         /// 朝向目标点
         /// </summary>
-        public void LookAt(Vector3 target)
+        public void LookAt(CoreVector3 target)
         {
-            transform.LookAt(new UnityEngine.Vector3(target.X, target.Y, target.Z));
+            transform.LookAt(new UnityVector3(target.X, target.Y, target.Z));
         }
         
         /// <summary>
         /// 旋转
         /// </summary>
-        public void Rotate(Vector3 eulerAngles)
+        public void Rotate(CoreVector3 eulerAngles)
         {
-            transform.Rotate(new UnityEngine.Vector3(eulerAngles.X, eulerAngles.Y, eulerAngles.Z));
+            transform.Rotate(new UnityVector3(eulerAngles.X, eulerAngles.Y, eulerAngles.Z));
         }
         
         /// <summary>
         /// 平移
         /// </summary>
-        public void Translate(Vector3 translation)
+        public void Translate(CoreVector3 translation)
         {
-            transform.Translate(new UnityEngine.Vector3(translation.X, translation.Y, translation.Z));
+            transform.Translate(new UnityVector3(translation.X, translation.Y, translation.Z));
         }
         #endregion
     }
-} 
+}

@@ -7,7 +7,7 @@ namespace ModSystem.Unity
     /// <summary>
     /// Unity日志实现
     /// </summary>
-    public class UnityLogger : ILogger
+    public class UnityLogger : ModSystem.Core.ILogger
     {
         private readonly string prefix;
         private readonly bool includeTimestamp;
