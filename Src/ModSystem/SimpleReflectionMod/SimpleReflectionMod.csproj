@@ -1,0 +1,16 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>netstandard2.1</TargetFramework>
+    <Nullable>enable</Nullable>
+  </PropertyGroup>
+
+  <Target Name="PostBuild" AfterTargets="PostBuildEvent">
+    <Exec Command="xcopy /Y &quot;$(TargetPath)&quot; &quot;D:\Git\ModSystem\UnityProject\Assets\StreamingAssets\Mods&quot;" />
+  </Target>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ModSystem.Core\ModSystem.Core.csproj" />
+  </ItemGroup>
+
+</Project>

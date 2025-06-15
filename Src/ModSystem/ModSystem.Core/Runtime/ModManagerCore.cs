@@ -17,11 +17,13 @@ namespace ModSystem.Core.Runtime
         private readonly Dictionary<string, IModBehaviour> _loadedMods = new Dictionary<string, IModBehaviour>();
         private readonly ILogger _logger;
         private readonly IEventBus _eventBus;
+        private readonly IUnityAccess _unityAccess;
 
-        public ModManagerCore(ILogger logger)
+        public ModManagerCore(ILogger logger, IUnityAccess unityAccess = null)
         {
             _logger = logger;
             _eventBus = new EventBus();
+            _unityAccess = unityAccess;
         }
 
         public IEventBus EventBus => _eventBus;
@@ -69,7 +71,7 @@ namespace ModSystem.Core.Runtime
                     if (mod != null && !_loadedMods.ContainsKey(mod.ModId))
                     {
                         _loadedMods[mod.ModId] = mod;
-                        var context = new ModContext(_eventBus, _logger);
+                        var context = new ModContext(_eventBus, _logger, _unityAccess);
                         mod.Initialize(context);
                         _logger.Log($"Loaded: {mod.ModId}");
                     }

@@ -11,6 +11,7 @@ namespace ModSystem.Core.Runtime
     {
         protected IEventBus EventBus { get; private set; }
         protected ILogger Logger { get; private set; }
+        protected IUnityAccess UnityAccess { get; private set; }
 
         public abstract string ModId { get; }
 
@@ -18,6 +19,7 @@ namespace ModSystem.Core.Runtime
         {
             EventBus = context.EventBus;
             Logger = context.Logger;
+            UnityAccess = context.UnityAccess;
             OnInitialize();
         }
 

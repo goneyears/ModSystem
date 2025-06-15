@@ -9,11 +9,13 @@ namespace ModSystem.Core.Runtime
     {
         public IEventBus EventBus { get; }
         public ILogger Logger { get; }
+        public IUnityAccess UnityAccess { get; }
 
-        public ModContext(IEventBus eventBus, ILogger logger)
+        public ModContext(IEventBus eventBus, ILogger logger, IUnityAccess unityAccess = null)
         {
             EventBus = eventBus;
             Logger = logger;
+            UnityAccess = unityAccess;
         }
     }
 }

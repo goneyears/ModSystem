@@ -2,6 +2,7 @@ using System.IO;
 using UnityEngine;
 using ModSystem.Core.Runtime;
 using ModSystem.Unity.Events;
+using ModSystem.Unity.Reflection;
 
 namespace ModSystem.Unity
 {
@@ -14,6 +15,7 @@ namespace ModSystem.Unity
         [SerializeField] private bool loadOnStart = true;
 
         private ModManagerCore _modManager;
+        private UnityAccessBridge _unityAccess;
         private static ModSystemController _instance;
 
         public static ModSystemController Instance => _instance;
@@ -33,7 +35,9 @@ namespace ModSystem.Unity
             EnsureUISystem();
 
             // 初始化
-            _modManager = new ModManagerCore(new UnityLogger());
+            var logger = new UnityLogger();
+            _unityAccess = new UnityAccessBridge();
+            _modManager = new ModManagerCore(logger, _unityAccess);
             
             // 初始化事件桥接
             var bridge = gameObject.AddComponent<UnityEventBridge>();
@@ -71,6 +75,7 @@ namespace ModSystem.Unity
         }
 
         public Core.Interfaces.IEventBus GetEventBus() => _modManager.EventBus;
+        public Core.Interfaces.IUnityAccess GetUnityAccess() => _unityAccess;
 
         void OnDestroy()
         {
