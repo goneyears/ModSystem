@@ -1,7 +1,7 @@
 using System.IO;
 using UnityEngine;
 using ModSystem.Core.Runtime;
-using IModLogger = ModSystem.Core.Interfaces.ILogger;  // 使用别名避免冲突
+using ModSystem.Unity.Events;
 
 namespace ModSystem.Unity
 {
@@ -10,33 +10,15 @@ namespace ModSystem.Unity
     /// </summary>
     public class ModSystemController : MonoBehaviour
     {
-        [Header("Configuration")]
         [SerializeField] private string modsFolder = "Mods";
         [SerializeField] private bool loadOnStart = true;
 
         private ModManagerCore _modManager;
-        private IModLogger _logger;
-
-        // 单例模式
         private static ModSystemController _instance;
-        public static ModSystemController Instance
-        {
-            get
-            {
-                if (_instance == null)
-                {
-                    _instance = FindObjectOfType<ModSystemController>();
-                    if (_instance == null)
-                    {
-                        var go = new GameObject("ModSystemController");
-                        _instance = go.AddComponent<ModSystemController>();
-                    }
-                }
-                return _instance;
-            }
-        }
 
-        private void Awake()
+        public static ModSystemController Instance => _instance;
+
+        void Awake()
         {
             if (_instance != null && _instance != this)
             {
@@ -47,14 +29,34 @@ namespace ModSystem.Unity
             _instance = this;
             DontDestroyOnLoad(gameObject);
 
+            // 确保UI系统基础组件存在
+            EnsureUISystem();
+
             // 初始化
-            _logger = new UnityLogger();
-            _modManager = new ModManagerCore(_logger);
+            _modManager = new ModManagerCore(new UnityLogger());
             
-            _logger.Log("ModSystem initialized");
+            // 初始化事件桥接
+            var bridge = gameObject.AddComponent<UnityEventBridge>();
+            bridge.Initialize(_modManager.EventBus);
         }
 
-        private void Start()
+        /// <summary>
+        /// 确保UI系统必需的组件存在
+        /// </summary>
+        private void EnsureUISystem()
+        {
+            // EventSystem是Unity UI的核心组件，必须存在
+            if (!GameObject.Find("EventSystem"))
+            {
+                var eventSystem = new GameObject("EventSystem");
+                eventSystem.AddComponent<UnityEngine.EventSystems.EventSystem>();
+                eventSystem.AddComponent<UnityEngine.EventSystems.StandaloneInputModule>();
+                DontDestroyOnLoad(eventSystem);
+                UnityEngine.Debug.Log("[ModSystem] Created EventSystem");
+            }
+        }
+
+        void Start()
         {
             if (loadOnStart)
             {
@@ -62,52 +64,17 @@ namespace ModSystem.Unity
             }
         }
 
-        /// <summary>
-        /// 加载模组
-        /// </summary>
         public void LoadMods()
         {
-            string modsPath = GetModsPath();
-            _logger.Log($"Loading mods from: {modsPath}");
-            
-            if (!Directory.Exists(modsPath))
-            {
-                Directory.CreateDirectory(modsPath);
-                _logger.LogWarning($"Created mods directory: {modsPath}");
-            }
-
-            _modManager.LoadModsFromDirectory(modsPath);
+            string path = Path.Combine(Application.streamingAssetsPath, modsFolder);
+            _modManager.LoadModsFromDirectory(path);
         }
 
-        /// <summary>
-        /// 获取模组路径
-        /// </summary>
-        private string GetModsPath()
-        {
-            // 在编辑器中使用StreamingAssets
-#if UNITY_EDITOR
-            return Path.Combine(Application.streamingAssetsPath, modsFolder);
-#else
-            // 在构建版本中使用持久化数据路径
-            return Path.Combine(Application.persistentDataPath, modsFolder);
-#endif
-        }
+        public Core.Interfaces.IEventBus GetEventBus() => _modManager.EventBus;
 
-        private void OnDestroy()
+        void OnDestroy()
         {
-            if (_modManager != null)
-            {
-                _logger.Log("Shutting down ModSystem");
-                _modManager.ShutdownAllMods();
-            }
-        }
-
-        /// <summary>
-        /// 获取已加载的模组数量
-        /// </summary>
-        public int GetLoadedModCount()
-        {
-            return _modManager?.GetLoadedModCount() ?? 0;
+            _modManager?.ShutdownAllMods();
         }
     }
 }

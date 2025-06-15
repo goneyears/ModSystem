@@ -1,23 +1,24 @@
-﻿using System;
-using ModSystem.Core.Runtime;
+﻿using ModSystem.Core.Runtime;
+using ModSystem.Core.Events;
 
 namespace HelloWorldMod
 {
-    /// <summary>
-    /// 使用ModBase的示例模组
-    /// </summary>
-    public class HelloWorldModSimple : ModBase
+    public class HelloWorldModV2 : ModBase
     {
-        public override string ModId => "hello_world_mod_simple";
+        public override string ModId => "hello_world_v2";
 
-        public override void Initialize()
+        protected override void OnInitialize()
         {
-            Logger.Log($"[{ModId}] Hello from ModBase! Initialized at {DateTime.Now}");
+            Logger.Log("Hello World V2!");
+            Subscribe<BroadcastEvent>(OnBroadcast);
         }
 
-        public override void Shutdown()
+        private void OnBroadcast(BroadcastEvent e)
         {
-            Logger.Log($"[{ModId}] Goodbye from ModBase! Shutdown at {DateTime.Now}");
+            if (e.SenderId != ModId)
+            {
+                Logger.Log($"Received: {e.Message} from {e.SenderId}");
+            }
         }
     }
 }
