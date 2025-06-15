@@ -6,12 +6,12 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
 
-  <ItemGroup>
-    <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
-  </ItemGroup>
-
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
-    <Exec Command="xcopy /Y &quot;$(TargetPath)&quot; &quot;D:\Git\ModSystem\UnityProject\Assets\ModSystem\Core\Assemblies&quot;" />
+    <Exec Command="xcopy /Y &quot;$(TargetPath)&quot; &quot;D:\Git\ModSystem\UnityProject\Assets\StreamingAssets\Mods&quot;" />
   </Target>
+
+  <ItemGroup>
+    <ProjectReference Include="..\ModSystem.Core\ModSystem.Core.csproj" />
+  </ItemGroup>
 
 </Project>

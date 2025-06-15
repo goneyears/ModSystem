@@ -1,36 +1,27 @@
-namespace ModSystem.Core
+﻿using System;
+using System.Collections.Generic;
+using System.Text;
+
+namespace ModSystem.Core.Interfaces
 {
     /// <summary>
-    /// 模组行为接口
-    /// 定义模组的主要逻辑和生命周期方法
+    /// 模组行为的基础接口
     /// </summary>
     public interface IModBehaviour
     {
         /// <summary>
-        /// 行为的唯一标识符
+        /// 模组的唯一标识符
         /// </summary>
-        string BehaviourId { get; }
-        
+        string ModId { get; }
+
         /// <summary>
-        /// 行为版本号
+        /// 初始化模组
         /// </summary>
-        string Version { get; }
-        
+        void Initialize();
+
         /// <summary>
-        /// 初始化方法，在模组加载时调用
+        /// 关闭模组
         /// </summary>
-        /// <param name="context">模组上下文</param>
-        void OnInitialize(IModContext context);
-        
-        /// <summary>
-        /// 更新方法，每帧调用
-        /// </summary>
-        /// <param name="deltaTime">自上次更新以来的时间（秒）</param>
-        void OnUpdate(float deltaTime);
-        
-        /// <summary>
-        /// 销毁方法，在模组卸载时调用
-        /// </summary>
-        void OnDestroy();
+        void Shutdown();
     }
-} 
+}

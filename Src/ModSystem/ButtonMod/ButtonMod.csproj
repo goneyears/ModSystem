@@ -14,7 +14,7 @@
   </ItemGroup>
 
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
-    <Exec Command="xcopy /Y &quot;$(TargetPath)&quot; &quot;D:\Git\ModSystem\UnityProject\Assets\StreamingAssets\Mods\ButtonMod&quot;&#xD;&#xA;xcopy /Y &quot;$(ProjectDir)Config\manifest.json&quot; &quot;D:\Git\ModSystem\UnityProject\Assets\StreamingAssets\Mods\ButtonMod&quot;" />
+    <Exec Command="REM xcopy /Y &quot;$(TargetPath)&quot; &quot;D:\Git\ModSystem\UnityProject\Assets\StreamingAssets\Mods\ButtonMod&quot;&#xD;&#xA;REM xcopy /Y &quot;$(ProjectDir)Config\manifest.json&quot; &quot;D:\Git\ModSystem\UnityProject\Assets\StreamingAssAets\Mods\ButtonMod&quot;" />
   </Target>
 
 </Project>
