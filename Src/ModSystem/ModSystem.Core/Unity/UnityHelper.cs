@@ -108,6 +108,20 @@ namespace ModSystem.Core.Unity
         }
 
         /// <summary>
+        /// 旋转对象（增量旋转）
+        /// </summary>
+        public static void Rotate(object gameObject, float x, float y, float z)
+        {
+            var transform = ReflectionHelper.GetProperty(gameObject, "transform");
+            if (transform != null)
+            {
+                var vector3Type = ReflectionHelper.FindType("UnityEngine.Vector3");
+                var rotation = Activator.CreateInstance(vector3Type, x, y, z);
+                ReflectionHelper.InvokeMethod(transform, "Rotate", rotation);
+            }
+        }
+
+        /// <summary>
         /// 设置材质颜色
         /// </summary>
         public static void SetColor(object gameObject, float r, float g, float b, float a = 1.0f)

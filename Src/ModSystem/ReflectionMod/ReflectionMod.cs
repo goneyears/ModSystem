@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using ModSystem.Core.Runtime;
 using ModSystem.Core.Events;
 using ModSystem.Core.Reflection;
@@ -6,18 +7,18 @@ using ModSystem.Core.Reflection;
 namespace ReflectionMod
 {
     /// <summary>
-    /// 反射示例模组 - 演示使用ReflectionHelper动态创建Unity对象
+    /// 反射示例模组 - 支持创建多个对象的版本
     /// </summary>
-    public class ReflectionMod : ModBase
+    public class ReflectionModMultiple : ModBase
     {
-        public override string ModId => "reflection_mod";
+        public override string ModId => "reflection_mod_multiple";
 
-        private object _createdCube;
-        private object _createdLight;
+        private readonly List<object> _createdObjects = new List<object>();
+        private readonly Random _random = new Random();
 
         protected override void OnInitialize()
         {
-            Logger.Log("ReflectionMod initialized!");
+            Logger.Log("ReflectionMod (Multiple Objects) initialized!");
 
             // 订阅按钮事件
             Subscribe<ButtonClickedEvent>(OnButtonClicked);
@@ -25,15 +26,15 @@ namespace ReflectionMod
             // 创建UI
             PublishEvent(new CreateUIRequestEvent
             {
-                UIType = "ReflectionPanel",
-                Title = "Reflection Mod",
+                UIType = "ReflectionPanelMultiple",
+                Title = "Reflection Mod (Multiple)",
                 Buttons = new[]
                 {
-                    new ButtonConfig { Id = "create_cube", Text = "Create Cube" },
-                    new ButtonConfig { Id = "create_light", Text = "Create Light" },
-                    new ButtonConfig { Id = "change_color", Text = "Change Color" },
-                    new ButtonConfig { Id = "rotate", Text = "Rotate" },
-                    new ButtonConfig { Id = "cleanup", Text = "Clean Up" }
+                    new ButtonConfig { Id = "create_cube", Text = "Add Cube" },
+                    new ButtonConfig { Id = "create_light", Text = "Add Light" },
+                    new ButtonConfig { Id = "change_colors", Text = "Change All Colors" },
+                    new ButtonConfig { Id = "rotate_all", Text = "Rotate All" },
+                    new ButtonConfig { Id = "cleanup", Text = "Clean Up All" }
                 }
             });
         }
@@ -48,11 +49,11 @@ namespace ReflectionMod
                 case "create_light":
                     CreateLight();
                     break;
-                case "change_color":
-                    ChangeColor();
+                case "change_colors":
+                    ChangeAllColors();
                     break;
-                case "rotate":
-                    RotateCube();
+                case "rotate_all":
+                    RotateAll();
                     break;
                 case "cleanup":
                     CleanUp();
@@ -64,28 +65,52 @@ namespace ReflectionMod
         {
             try
             {
-                // 使用 GameObject.CreatePrimitive 创建立方体
                 var primitiveType = ReflectionHelper.FindType("UnityEngine.PrimitiveType");
                 if (primitiveType != null)
                 {
                     var cubeValue = Enum.Parse(primitiveType, "Cube");
-                    _createdCube = ReflectionHelper.InvokeStatic("UnityEngine.GameObject", "CreatePrimitive", cubeValue);
+                    var cube = ReflectionHelper.InvokeStatic("UnityEngine.GameObject", "CreatePrimitive", cubeValue);
 
-                    if (_createdCube != null)
+                    if (cube != null)
                     {
-                        // 设置名称
-                        ReflectionHelper.SetProperty(_createdCube, "name", "ReflectionCube");
+                        // 设置唯一名称
+                        var cubeIndex = _createdObjects.Count;
+                        var cubeName = $"ReflectionCube_{cubeIndex}";
+                        ReflectionHelper.SetProperty(cube, "name", cubeName);
 
-                        // 设置位置
-                        var transform = ReflectionHelper.GetProperty(_createdCube, "transform");
+                        // 随机位置
+                        float x = (float)(_random.NextDouble() * 6 - 3); // -3 到 3
+                        float y = (float)(_random.NextDouble() * 3 + 1); // 1 到 4
+                        float z = (float)(_random.NextDouble() * 6 - 3); // -3 到 3
+
+                        var transform = ReflectionHelper.GetProperty(cube, "transform");
                         if (transform != null)
                         {
                             var vector3Type = ReflectionHelper.FindType("UnityEngine.Vector3");
-                            var position = Activator.CreateInstance(vector3Type, 0f, 2f, 0f);
+                            var position = Activator.CreateInstance(vector3Type, x, y, z);
                             ReflectionHelper.SetProperty(transform, "position", position);
                         }
 
-                        Logger.Log("Cube created successfully!");
+                        // 随机颜色
+                        float r = (float)_random.NextDouble();
+                        float g = (float)_random.NextDouble();
+                        float b = (float)_random.NextDouble();
+
+                        var renderer = ReflectionHelper.GetComponent(cube, "UnityEngine.MeshRenderer");
+                        if (renderer != null)
+                        {
+                            var material = ReflectionHelper.GetProperty(renderer, "material");
+                            if (material != null)
+                            {
+                                var colorType = ReflectionHelper.FindType("UnityEngine.Color");
+                                var color = Activator.CreateInstance(colorType, r, g, b, 1.0f);
+                                ReflectionHelper.SetProperty(material, "color", color);
+                                Logger.Log($"Set initial color for {cubeName}: RGB({r:F2}, {g:F2}, {b:F2})");
+                            }
+                        }
+
+                        _createdObjects.Add(cube);
+                        Logger.Log($"Created {cubeName} at position ({x:F2}, {y:F2}, {z:F2}). Total objects: {_createdObjects.Count}");
                     }
                 }
             }
@@ -99,37 +124,55 @@ namespace ReflectionMod
         {
             try
             {
-                _createdLight = ReflectionHelper.CreateGameObject("ReflectionLight");
-                if (_createdLight == null) return;
+                var lightIndex = _createdObjects.Count;
+                var lightName = $"ReflectionLight_{lightIndex}";
+                var light = ReflectionHelper.CreateGameObject(lightName);
 
-                var light = ReflectionHelper.AddComponent(_createdLight, "UnityEngine.Light");
-                if (light != null)
+                if (light == null)
                 {
-                    ReflectionHelper.SetProperty(light, "intensity", 2.0f);
-                    ReflectionHelper.SetProperty(light, "range", 20.0f);
+                    Logger.LogError("Failed to create GameObject for light");
+                    return;
+                }
 
-                    // 设置光源类型为点光源
+                var lightComponent = ReflectionHelper.AddComponent(light, "UnityEngine.Light");
+                if (lightComponent != null)
+                {
+                    ReflectionHelper.SetProperty(lightComponent, "intensity", 1.5f);
+                    ReflectionHelper.SetProperty(lightComponent, "range", 15.0f);
+
                     var lightType = ReflectionHelper.FindType("UnityEngine.LightType");
                     if (lightType != null)
                     {
                         var pointLight = Enum.Parse(lightType, "Point");
-                        ReflectionHelper.SetProperty(light, "type", pointLight);
+                        ReflectionHelper.SetProperty(lightComponent, "type", pointLight);
                     }
+
+                    // 随机颜色
+                    float r = (float)_random.NextDouble();
+                    float g = (float)_random.NextDouble();
+                    float b = (float)_random.NextDouble();
+
+                    var colorType = ReflectionHelper.FindType("UnityEngine.Color");
+                    var color = Activator.CreateInstance(colorType, r, g, b, 1.0f);
+                    ReflectionHelper.SetProperty(lightComponent, "color", color);
+                    Logger.Log($"Set light color for {lightName}: RGB({r:F2}, {g:F2}, {b:F2})");
                 }
 
-                var transform = ReflectionHelper.GetProperty(_createdLight, "transform");
+                // 随机位置
+                float x = (float)(_random.NextDouble() * 8 - 4);
+                float y = (float)(_random.NextDouble() * 3 + 4); // 4 到 7
+                float z = (float)(_random.NextDouble() * 8 - 4);
+
+                var transform = ReflectionHelper.GetProperty(light, "transform");
                 if (transform != null)
                 {
                     var vector3Type = ReflectionHelper.FindType("UnityEngine.Vector3");
-                    var position = Activator.CreateInstance(vector3Type, 0f, 5f, 0f);
+                    var position = Activator.CreateInstance(vector3Type, x, y, z);
                     ReflectionHelper.SetProperty(transform, "position", position);
-
-                    // 设置旋转
-                    var rotation = Activator.CreateInstance(vector3Type, 45f, -30f, 0f);
-                    ReflectionHelper.SetProperty(transform, "eulerAngles", rotation);
                 }
 
-                Logger.Log("Light created successfully!");
+                _createdObjects.Add(light);
+                Logger.Log($"Created {lightName} at position ({x:F2}, {y:F2}, {z:F2}). Total objects: {_createdObjects.Count}");
             }
             catch (Exception ex)
             {
@@ -137,76 +180,175 @@ namespace ReflectionMod
             }
         }
 
-        private void ChangeColor()
+        private void ChangeAllColors()
         {
-            if (_createdCube == null)
-            {
-                Logger.LogWarning("No cube to change color!");
-                return;
-            }
-
             try
             {
-                var renderer = ReflectionHelper.GetComponent(_createdCube, "UnityEngine.MeshRenderer");
-                if (renderer != null)
-                {
-                    var material = ReflectionHelper.GetProperty(renderer, "material");
-                    if (material != null)
-                    {
-                        var colorType = ReflectionHelper.FindType("UnityEngine.Color");
-                        var r = (float)new Random().NextDouble();
-                        var g = (float)new Random().NextDouble();
-                        var b = (float)new Random().NextDouble();
-                        var color = Activator.CreateInstance(colorType, r, g, b, 1.0f);
+                int changedCount = 0;
+                int totalCount = _createdObjects.Count;
 
-                        ReflectionHelper.SetProperty(material, "color", color);
-                        Logger.Log($"Changed color to RGB({r:F2}, {g:F2}, {b:F2})");
+                for (int i = 0; i < _createdObjects.Count; i++)
+                {
+                    var obj = _createdObjects[i];
+                    if (obj == null)
+                    {
+                        Logger.LogWarning($"Object at index {i} is null");
+                        continue;
+                    }
+
+                    var name = ReflectionHelper.GetProperty(obj, "name") as string;
+                    bool changed = false;
+
+                    // 尝试改变网格渲染器的颜色（用于立方体等）
+                    try
+                    {
+                        var renderer = ReflectionHelper.GetComponent(obj, "UnityEngine.MeshRenderer");
+                        if (renderer != null)
+                        {
+                            var material = ReflectionHelper.GetProperty(renderer, "material");
+                            if (material != null)
+                            {
+                                var colorType = ReflectionHelper.FindType("UnityEngine.Color");
+                                var color = Activator.CreateInstance(colorType,
+                                    (float)_random.NextDouble(),
+                                    (float)_random.NextDouble(),
+                                    (float)_random.NextDouble(),
+                                    1.0f);
+                                ReflectionHelper.SetProperty(material, "color", color);
+                                changed = true;
+                                Logger.Log($"Changed color for mesh: {name}");
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.LogError($"Failed to change mesh color for {name}: {ex.Message}");
+                    }
+
+                    // 尝试改变灯光的颜色
+                    try
+                    {
+                        var lightComponent = ReflectionHelper.GetComponent(obj, "UnityEngine.Light");
+                        if (lightComponent != null)
+                        {
+                            var colorType = ReflectionHelper.FindType("UnityEngine.Color");
+                            var color = Activator.CreateInstance(colorType,
+                                (float)_random.NextDouble(),
+                                (float)_random.NextDouble(),
+                                (float)_random.NextDouble(),
+                                1.0f);
+                            ReflectionHelper.SetProperty(lightComponent, "color", color);
+                            changed = true;
+                            Logger.Log($"Changed color for light: {name}");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.LogError($"Failed to change light color for {name}: {ex.Message}");
+                    }
+
+                    if (changed)
+                    {
+                        changedCount++;
+                    }
+                    else
+                    {
+                        Logger.LogWarning($"No color component found for: {name}");
                     }
                 }
+
+                Logger.Log($"Changed colors for {changedCount}/{totalCount} objects!");
             }
             catch (Exception ex)
             {
-                Logger.LogError($"Failed to change color: {ex.Message}");
+                Logger.LogError($"Failed to change colors: {ex.Message}");
             }
         }
 
-        private void RotateCube()
+        private void RotateAll()
         {
-            if (_createdCube == null)
-            {
-                Logger.LogWarning("No cube to rotate!");
-                return;
-            }
-
             try
             {
-                var transform = ReflectionHelper.GetProperty(_createdCube, "transform");
-                if (transform != null)
+                int rotatedCount = 0;
+                int totalCount = _createdObjects.Count;
+
+                for (int i = 0; i < _createdObjects.Count; i++)
                 {
-                    ReflectionHelper.InvokeMethod(transform, "Rotate", 0f, 45f, 0f);
-                    Logger.Log("Rotated cube by 45 degrees");
+                    var obj = _createdObjects[i];
+                    if (obj == null)
+                    {
+                        Logger.LogWarning($"Object at index {i} is null");
+                        continue;
+                    }
+
+                    var name = ReflectionHelper.GetProperty(obj, "name") as string;
+
+                    try
+                    {
+                        var transform = ReflectionHelper.GetProperty(obj, "transform");
+                        if (transform != null)
+                        {
+                            var vector3Type = ReflectionHelper.FindType("UnityEngine.Vector3");
+                            var rotation = Activator.CreateInstance(vector3Type,
+                                _random.Next(-45, 45),
+                                _random.Next(-45, 45),
+                                _random.Next(-45, 45));
+                            ReflectionHelper.InvokeMethod(transform, "Rotate", rotation);
+                            rotatedCount++;
+                            Logger.Log($"Rotated: {name}");
+                        }
+                        else
+                        {
+                            Logger.LogWarning($"No transform found for: {name}");
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        Logger.LogError($"Failed to rotate {name}: {ex.Message}");
+                    }
                 }
+
+                Logger.Log($"Rotated {rotatedCount}/{totalCount} objects!");
             }
             catch (Exception ex)
             {
-                Logger.LogError($"Failed to rotate: {ex.Message}");
+                Logger.LogError($"Failed during rotate all: {ex.Message}");
             }
         }
 
         private void CleanUp()
         {
-            if (_createdCube != null)
+            try
             {
-                ReflectionHelper.Destroy(_createdCube);
-                _createdCube = null;
-                Logger.Log("Cube destroyed");
-            }
+                int count = 0;
+                int totalCount = _createdObjects.Count;
 
-            if (_createdLight != null)
+                // 使用反向循环，因为我们要清除列表
+                for (int i = _createdObjects.Count - 1; i >= 0; i--)
+                {
+                    var obj = _createdObjects[i];
+                    if (obj != null)
+                    {
+                        var name = ReflectionHelper.GetProperty(obj, "name") as string ?? "Unknown";
+                        try
+                        {
+                            ReflectionHelper.Destroy(obj);
+                            count++;
+                            Logger.Log($"Destroyed: {name}");
+                        }
+                        catch (Exception ex)
+                        {
+                            Logger.LogError($"Failed to destroy {name}: {ex.Message}");
+                        }
+                    }
+                }
+
+                _createdObjects.Clear();
+                Logger.Log($"Cleanup complete: destroyed {count}/{totalCount} objects");
+            }
+            catch (Exception ex)
             {
-                ReflectionHelper.Destroy(_createdLight);
-                _createdLight = null;
-                Logger.Log("Light destroyed");
+                Logger.LogError($"Failed during cleanup: {ex.Message}");
             }
         }
 

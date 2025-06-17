@@ -15,7 +15,9 @@ namespace ReflectionMod
 
         private object _createdCube;
         private object _createdLight;
+        private object _createdGround;
         private int _colorIndex = 0;
+        private float _rotationAngle = 0f;
         private readonly float[,] _colors = new float[,]
         {
             { 1, 0, 0 },    // 红
@@ -71,6 +73,13 @@ namespace ReflectionMod
         {
             try
             {
+                // 先清理可能存在的旧对象
+                if (_createdCube != null || _createdLight != null || _createdGround != null)
+                {
+                    Logger.Log("Cleaning up existing scene...");
+                    CleanUp();
+                }
+
                 // 创建立方体
                 _createdCube = UnityHelper.CreateCube("ColorfulCube");
                 UnityHelper.SetPosition(_createdCube, 0, 1, 0);
@@ -81,9 +90,9 @@ namespace ReflectionMod
                 UnityHelper.SetPosition(_createdLight, 2, 4, -2);
 
                 // 创建地面
-                var ground = UnityHelper.CreatePlane("Ground");
-                UnityHelper.SetScale(ground, 2, 1, 2);
-                UnityHelper.SetColor(ground, 0.5f, 0.5f, 0.5f);
+                _createdGround = UnityHelper.CreatePlane("Ground");
+                UnityHelper.SetScale(_createdGround, 2, 1, 2);
+                UnityHelper.SetColor(_createdGround, 0.5f, 0.5f, 0.5f);
 
                 Logger.Log("Scene created successfully!");
             }
@@ -129,20 +138,17 @@ namespace ReflectionMod
 
             try
             {
-                // 旋转立方体
-                var cubeTransform = ReflectionHelper.GetProperty(_createdCube, "transform");
-                if (cubeTransform != null)
-                {
-                    ReflectionHelper.InvokeMethod(cubeTransform, "Rotate", 0f, 45f, 0f);
-                }
+                // 旋转立方体 - 使用UnityHelper
+                UnityHelper.Rotate(_createdCube, 0, 45, 0);
 
                 // 移动光源（围绕立方体旋转）
-                var time = DateTime.Now.Ticks / 10000000f;
-                var x = (float)Math.Sin(time) * 3;
-                var z = (float)Math.Cos(time) * 3;
+                _rotationAngle += 45f; // 每次增加45度
+                var radians = _rotationAngle * (float)(Math.PI / 180);
+                var x = (float)Math.Sin(radians) * 3;
+                var z = (float)Math.Cos(radians) * 3;
                 UnityHelper.SetPosition(_createdLight, x, 4, z);
 
-                Logger.Log("Objects animated!");
+                Logger.Log($"Objects animated! Light angle: {_rotationAngle % 360}°");
             }
             catch (Exception ex)
             {
@@ -152,26 +158,62 @@ namespace ReflectionMod
 
         private void CleanUp()
         {
-            // 清理所有创建的对象
-            var allObjects = ReflectionHelper.InvokeStatic("UnityEngine.GameObject", "FindObjectsOfType",
-                ReflectionHelper.FindType("UnityEngine.GameObject"));
-
-            if (allObjects is object[] gameObjects)
+            try
             {
-                foreach (var obj in gameObjects)
+                // 清理立方体
+                if (_createdCube != null)
                 {
-                    var name = ReflectionHelper.GetProperty(obj, "name") as string;
-                    if (name != null && (name.Contains("Cube") || name.Contains("Light") || name == "Ground"))
-                    {
-                        ReflectionHelper.Destroy(obj);
-                        Logger.Log($"Destroyed: {name}");
-                    }
+                    ReflectionHelper.Destroy(_createdCube);
+                    _createdCube = null;
+                    Logger.Log("Destroyed: Cube");
                 }
-            }
 
-            _createdCube = null;
-            _createdLight = null;
-            _colorIndex = 0;
+                // 清理灯光
+                if (_createdLight != null)
+                {
+                    ReflectionHelper.Destroy(_createdLight);
+                    _createdLight = null;
+                    Logger.Log("Destroyed: Light");
+                }
+
+                // 清理地面
+                if (_createdGround != null)
+                {
+                    ReflectionHelper.Destroy(_createdGround);
+                    _createdGround = null;
+                    Logger.Log("Destroyed: Ground");
+                }
+
+                // 查找并清理可能遗留的对象（以防引用丢失）
+                var remainingCube = ReflectionHelper.FindGameObject("ColorfulCube");
+                if (remainingCube != null)
+                {
+                    ReflectionHelper.Destroy(remainingCube);
+                    Logger.Log("Destroyed remaining: ColorfulCube");
+                }
+
+                var remainingLight = ReflectionHelper.FindGameObject("MainLight");
+                if (remainingLight != null)
+                {
+                    ReflectionHelper.Destroy(remainingLight);
+                    Logger.Log("Destroyed remaining: MainLight");
+                }
+
+                var remainingGround = ReflectionHelper.FindGameObject("Ground");
+                if (remainingGround != null)
+                {
+                    ReflectionHelper.Destroy(remainingGround);
+                    Logger.Log("Destroyed remaining: Ground");
+                }
+
+                _colorIndex = 0;
+                _rotationAngle = 0f;
+                Logger.Log("Cleanup completed!");
+            }
+            catch (Exception ex)
+            {
+                Logger.LogError($"Failed during cleanup: {ex.Message}");
+            }
         }
 
         protected override void OnShutdown()

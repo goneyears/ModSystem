@@ -139,7 +139,10 @@ namespace ModSystem.Core.Reflection
             if (obj == null) return null;
 
             var type = obj.GetType();
-            var key = $"{type.FullName}.{methodName}";
+
+            // 对于缓存，需要包含参数类型信息
+            var argTypesStr = args == null ? "void" : string.Join(",", args.Select(a => a?.GetType().Name ?? "null"));
+            var key = $"{type.FullName}.{methodName}({argTypesStr})";
 
             MethodInfo method = null;
 
@@ -153,32 +156,48 @@ namespace ModSystem.Core.Reflection
                 }
                 else
                 {
-                    // 尝试直接获取
-                    method = type.GetMethod(methodName);
+                    // 获取所有同名方法
+                    var methods = type.GetMethods()
+                        .Where(m => m.Name == methodName)
+                        .ToArray();
 
-                    if (method == null && args != null)
+                    if (methods.Length == 0)
                     {
-                        // 根据参数类型查找
-                        var argTypes = args.Select(a => a?.GetType() ?? typeof(object)).ToArray();
-                        method = type.GetMethod(methodName, argTypes);
+                        throw new Exception($"Method {methodName} not found on type {type.Name}");
                     }
-
-                    if (method == null)
+                    else if (methods.Length == 1)
                     {
-                        // 尝试查找所有同名方法
-                        var methods = type.GetMethods()
-                            .Where(m => m.Name == methodName)
-                            .ToArray();
-
-                        if (methods.Length == 1)
+                        method = methods[0];
+                    }
+                    else
+                    {
+                        // 多个重载，需要根据参数匹配
+                        if (args == null || args.Length == 0)
                         {
-                            method = methods[0];
+                            // 无参数方法
+                            method = methods.FirstOrDefault(m => m.GetParameters().Length == 0);
                         }
-                        else if (methods.Length > 1 && args != null)
+                        else
                         {
-                            // 按参数数量匹配
-                            method = methods.FirstOrDefault(m =>
-                                m.GetParameters().Length == args.Length);
+                            // 首先尝试精确匹配参数类型
+                            var argTypes = args.Select(a => a?.GetType() ?? typeof(object)).ToArray();
+                            method = type.GetMethod(methodName, argTypes);
+
+                            if (method == null)
+                            {
+                                // 尝试找到最佳匹配
+                                var candidates = methods.Where(m => m.GetParameters().Length == args.Length).ToList();
+
+                                if (candidates.Count == 1)
+                                {
+                                    method = candidates[0];
+                                }
+                                else if (candidates.Count > 1)
+                                {
+                                    // 评分系统：找到最匹配的方法
+                                    method = FindBestMethodMatch(candidates, args);
+                                }
+                            }
                         }
                     }
                 }
@@ -187,14 +206,80 @@ namespace ModSystem.Core.Reflection
                     methodCache[key] = method;
             }
 
+            if (method == null)
+            {
+                throw new Exception($"Could not find suitable method {methodName} on type {type.Name} with {args?.Length ?? 0} arguments");
+            }
+
             try
             {
-                return method?.Invoke(obj, args);
+                return method.Invoke(obj, args);
             }
             catch (Exception ex)
             {
                 throw new Exception($"Failed to invoke {methodName} on {type.Name}: {ex.Message}", ex);
             }
+        }
+
+        /// <summary>
+        /// 找到最匹配的方法
+        /// </summary>
+        private static MethodInfo FindBestMethodMatch(List<MethodInfo> candidates, object[] args)
+        {
+            MethodInfo bestMatch = null;
+            int bestScore = -1;
+
+            foreach (var candidate in candidates)
+            {
+                var parameters = candidate.GetParameters();
+                int score = 0;
+
+                for (int i = 0; i < args.Length; i++)
+                {
+                    if (args[i] == null)
+                    {
+                        // null可以匹配任何引用类型
+                        if (!parameters[i].ParameterType.IsValueType)
+                            score += 1;
+                    }
+                    else
+                    {
+                        var argType = args[i].GetType();
+                        var paramType = parameters[i].ParameterType;
+
+                        if (paramType == argType)
+                        {
+                            score += 3; // 精确匹配得分最高
+                        }
+                        else if (paramType.IsAssignableFrom(argType))
+                        {
+                            score += 2; // 可以赋值
+                        }
+                        else if (IsNumericMatch(argType, paramType))
+                        {
+                            score += 1; // 数值类型可以转换
+                        }
+                    }
+                }
+
+                if (score > bestScore)
+                {
+                    bestScore = score;
+                    bestMatch = candidate;
+                }
+            }
+
+            return bestMatch;
+        }
+
+        /// <summary>
+        /// 检查是否是兼容的数值类型
+        /// </summary>
+        private static bool IsNumericMatch(Type from, Type to)
+        {
+            // 常见的数值类型转换
+            var numericTypes = new[] { typeof(int), typeof(float), typeof(double), typeof(long), typeof(short), typeof(byte) };
+            return numericTypes.Contains(from) && numericTypes.Contains(to);
         }
 
         /// <summary>
@@ -336,7 +421,26 @@ namespace ModSystem.Core.Reflection
         /// </summary>
         public static void Destroy(object obj)
         {
-            InvokeStatic("UnityEngine.Object", "Destroy", obj);
+            if (obj == null) return;
+
+            try
+            {
+                // 获取UnityEngine.Object类型
+                var objectType = FindType("UnityEngine.Object");
+                if (objectType != null)
+                {
+                    // 明确指定调用 Destroy(UnityEngine.Object) 重载
+                    var destroyMethod = objectType.GetMethod("Destroy", new Type[] { objectType });
+                    if (destroyMethod != null)
+                    {
+                        destroyMethod.Invoke(null, new[] { obj });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Failed to destroy object: {ex.Message}", ex);
+            }
         }
 
         /// <summary>
@@ -344,7 +448,26 @@ namespace ModSystem.Core.Reflection
         /// </summary>
         public static void DestroyImmediate(object obj)
         {
-            InvokeStatic("UnityEngine.Object", "DestroyImmediate", obj);
+            if (obj == null) return;
+
+            try
+            {
+                // 获取UnityEngine.Object类型
+                var objectType = FindType("UnityEngine.Object");
+                if (objectType != null)
+                {
+                    // 明确指定调用 DestroyImmediate(UnityEngine.Object) 重载
+                    var destroyMethod = objectType.GetMethod("DestroyImmediate", new Type[] { objectType });
+                    if (destroyMethod != null)
+                    {
+                        destroyMethod.Invoke(null, new[] { obj });
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new Exception($"Failed to destroy object immediately: {ex.Message}", ex);
+            }
         }
 
         // 辅助方法
