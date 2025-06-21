@@ -31,6 +31,9 @@ namespace TimerMod
         // 防止重复触发一次性定时器
         private bool _isWaitingForOnceTimer = false;
 
+        // 暂停状态
+        private bool _isPaused = false;
+
         // 颜色列表
         private readonly float[][] _colors = new float[][]
         {
@@ -58,7 +61,7 @@ namespace TimerMod
                 Buttons = new[]
                 {
                     new ButtonConfig { Id = "start_demo", Text = "Start Demo" },
-                    new ButtonConfig { Id = "pause_timers", Text = "Pause Timers" },
+                    new ButtonConfig { Id = "pause_timers", Text = "Pause/Resume" },
                     new ButtonConfig { Id = "reset", Text = "Reset" },
                     new ButtonConfig { Id = "test_once", Text = "Test Once (3s)" }
                 }
@@ -252,18 +255,62 @@ namespace TimerMod
         /// </summary>
         private void PauseTimers()
         {
-            if (_colorChangeTimer != -1)
+            if (_isPaused)
             {
-                CancelTimer(_colorChangeTimer);
-                _colorChangeTimer = -1;
-                Logger.Log("Color change timer paused");
-            }
+                // 恢复
+                _isPaused = false;
+                Logger.Log("Timers resumed");
 
-            if (_broadcastTimer != -1)
+                // 重新启动定时器（如果之前有的话）
+                if (_colorChangeTimer == -1 && _rotatingCube != null)
+                {
+                    _colorChangeTimer = SetRepeatingTimer(1.0f, () =>
+                    {
+                        ChangeColor();
+                        _tickCount++;
+                        UpdateDisplay();
+                    });
+                    Logger.Log("Color change timer restarted");
+                }
+
+                if (_broadcastTimer == -1)
+                {
+                    _broadcastTimer = SetRepeatingTimer(5.0f, () =>
+                    {
+                        PublishEvent(new BroadcastEvent
+                        {
+                            Message = $"Timer broadcast: {_tickCount} ticks, {_totalTime:F1}s elapsed",
+                            Data = new Dictionary<string, object>
+                            {
+                                { "ticks", _tickCount },
+                                { "time", _totalTime }
+                            }
+                        });
+                        Logger.Log("Broadcast sent!");
+                    });
+                    Logger.Log("Broadcast timer restarted");
+                }
+            }
+            else
             {
-                CancelTimer(_broadcastTimer);
-                _broadcastTimer = -1;
-                Logger.Log("Broadcast timer paused");
+                // 暂停
+                _isPaused = true;
+
+                if (_colorChangeTimer != -1)
+                {
+                    CancelTimer(_colorChangeTimer);
+                    _colorChangeTimer = -1;
+                    Logger.Log("Color change timer paused");
+                }
+
+                if (_broadcastTimer != -1)
+                {
+                    CancelTimer(_broadcastTimer);
+                    _broadcastTimer = -1;
+                    Logger.Log("Broadcast timer paused");
+                }
+
+                Logger.Log("All timers paused");
             }
         }
 
@@ -272,14 +319,28 @@ namespace TimerMod
         /// </summary>
         private void Reset()
         {
-            PauseTimers();
+            // 先取消所有定时器
+            if (_colorChangeTimer != -1)
+            {
+                CancelTimer(_colorChangeTimer);
+                _colorChangeTimer = -1;
+            }
+            if (_broadcastTimer != -1)
+            {
+                CancelTimer(_broadcastTimer);
+                _broadcastTimer = -1;
+            }
+
+            // 清理对象
             CleanupObjects();
 
+            // 重置所有状态
             _totalTime = 0f;
             _tickCount = 0;
             _currentColorIndex = 0;
             _frameCount = 0;
             _isWaitingForOnceTimer = false;
+            _isPaused = false;
 
             Logger.Log("Demo reset");
         }
@@ -292,18 +353,22 @@ namespace TimerMod
             // 调用基类的Update（更新定时器）
             base.OnUpdate(deltaTime);
 
-            // 累计时间
-            _totalTime += deltaTime;
+            // 如果暂停，不更新时间和旋转
+            if (!_isPaused)
+            {
+                // 累计时间
+                _totalTime += deltaTime;
+
+                // 旋转立方体
+                if (_rotatingCube != null)
+                {
+                    float rotationSpeed = 30f; // 每秒30度
+                    UnityHelper.Rotate(_rotatingCube, 0, rotationSpeed * deltaTime, 0);
+                }
+            }
 
             // 增加帧计数
             _frameCount++;
-
-            // 旋转立方体
-            if (_rotatingCube != null)
-            {
-                float rotationSpeed = 30f; // 每秒30度
-                UnityHelper.Rotate(_rotatingCube, 0, rotationSpeed * deltaTime, 0);
-            }
 
             // 更新显示（每10帧更新一次，避免频繁更新）
             if (_frameCount % 10 == 0)
@@ -348,7 +413,9 @@ namespace TimerMod
                     var textMesh = ReflectionHelper.GetComponent(_timerText, "UnityEngine.TextMesh");
                     if (textMesh != null)
                     {
-                        string displayText = $"Timer: {_totalTime:F1}s | Ticks: {_tickCount}";
+                        string displayText = _isPaused
+                            ? $"[PAUSED] Timer: {_totalTime:F1}s | Ticks: {_tickCount}"
+                            : $"Timer: {_totalTime:F1}s | Ticks: {_tickCount}";
                         ReflectionHelper.SetProperty(textMesh, "text", displayText);
                     }
                 }
