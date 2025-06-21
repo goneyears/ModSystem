@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace ModSystem.Core.Lifecycle
 {
@@ -75,9 +76,16 @@ namespace ModSystem.Core.Lifecycle
         {
             _timersToRemove.Clear();
 
+            // 创建一个副本来遍历，避免集合修改错误
+            var timersSnapshot = _timers.ToList();
+
             // 更新所有定时器
-            foreach (var timer in _timers)
+            foreach (var timer in timersSnapshot)
             {
+                // 确保定时器仍然存在（可能已被取消）
+                if (!_timers.Contains(timer))
+                    continue;
+
                 timer.ElapsedTime += deltaTime;
 
                 if (timer.ElapsedTime >= timer.Delay)

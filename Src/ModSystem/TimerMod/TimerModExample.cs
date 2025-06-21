@@ -28,6 +28,9 @@ namespace TimerMod
         // 帧计数器（替代Unity的Time.frameCount）
         private int _frameCount = 0;
 
+        // 防止重复触发一次性定时器
+        private bool _isWaitingForOnceTimer = false;
+
         // 颜色列表
         private readonly float[][] _colors = new float[][]
         {
@@ -138,25 +141,37 @@ namespace TimerMod
             UnityHelper.SetScale(_rotatingCube, 1.5f, 1.5f, 1.5f);
             UnityHelper.SetColor(_rotatingCube, 1, 0, 0);
 
-            // 创建文本显示（如果可能）
+            // 创建3D文本显示（使用3D Text而不是UI Text）
             try
             {
-                // 创建Canvas（如果不存在）
-                var canvas = ReflectionHelper.FindGameObject("ModUICanvas");
-                if (canvas == null)
+                // 创建一个空的GameObject作为文本载体
+                _timerText = ReflectionHelper.CreateGameObject("TimerDisplay");
+                UnityHelper.SetPosition(_timerText, 0, 4, 0);
+
+                // 添加TextMesh组件（3D文本）
+                var textMeshType = ReflectionHelper.FindType("UnityEngine.TextMesh");
+                if (textMeshType != null)
                 {
-                    canvas = UnityHelper.CreateCanvas("ModUICanvas");
+                    var textMesh = ReflectionHelper.AddComponent(_timerText, textMeshType);
+                    if (textMesh != null)
+                    {
+                        ReflectionHelper.SetProperty(textMesh, "text", "Timer: 0.0s | Ticks: 0");
+                        ReflectionHelper.SetProperty(textMesh, "fontSize", 50);
+                        ReflectionHelper.SetProperty(textMesh, "characterSize", 0.1f);
+                        ReflectionHelper.SetProperty(textMesh, "anchor", 4); // MiddleCenter
+                        ReflectionHelper.SetProperty(textMesh, "alignment", 1); // Center
+
+                        // 设置颜色
+                        var colorType = ReflectionHelper.FindType("UnityEngine.Color");
+                        var whiteColor = Activator.CreateInstance(colorType, 1f, 1f, 1f, 1f);
+                        ReflectionHelper.SetProperty(textMesh, "color", whiteColor);
+
+                        Logger.Log("Created 3D text display");
+                    }
                 }
-
-                // 创建文本
-                _timerText = UnityHelper.CreateText(canvas, "Timer: 0.0s | Ticks: 0", 0, 100);
-
-                // 设置文本属性
-                var textComponent = ReflectionHelper.GetComponent(_timerText, "UnityEngine.UI.Text");
-                if (textComponent != null)
+                else
                 {
-                    ReflectionHelper.SetProperty(textComponent, "fontSize", 24);
-                    ReflectionHelper.SetProperty(textComponent, "alignment", 4); // MiddleCenter
+                    Logger.LogWarning("TextMesh type not found");
                 }
             }
             catch (Exception ex)
@@ -170,22 +185,65 @@ namespace TimerMod
         /// </summary>
         private void TestOnceTimer()
         {
+            if (_isWaitingForOnceTimer)
+            {
+                Logger.LogWarning("Already waiting for timer, please wait...");
+                return;
+            }
+
+            _isWaitingForOnceTimer = true;
             Logger.Log("Setting one-time timer for 3 seconds...");
+
+            // 创建一个唯一的球体名称，避免重复
+            var sphereName = $"TempSphere_{DateTime.Now.Ticks}";
 
             SetTimer(3.0f, () =>
             {
-                Logger.Log("One-time timer fired after 3 seconds!");
-
-                // 创建一个临时对象并在1秒后删除
-                var tempSphere = UnityHelper.CreateSphere("TempSphere");
-                UnityHelper.SetPosition(tempSphere, 3, 2, 0);
-                UnityHelper.SetColor(tempSphere, 1, 1, 0);
-
-                SetTimer(1.0f, () =>
+                try
                 {
-                    ReflectionHelper.Destroy(tempSphere);
-                    Logger.Log("Temporary sphere destroyed");
-                });
+                    Logger.Log("One-time timer fired after 3 seconds!");
+
+                    // 创建一个临时对象
+                    var tempSphere = UnityHelper.CreateSphere(sphereName);
+                    if (tempSphere != null)
+                    {
+                        UnityHelper.SetPosition(tempSphere, 3, 2, 0);
+                        UnityHelper.SetColor(tempSphere, 1, 1, 0);
+                        Logger.Log($"Created sphere: {sphereName}");
+
+                        // 1秒后删除（使用闭包确保引用正确）
+                        var sphereToDelete = tempSphere;
+                        var nameToLog = sphereName;
+                        SetTimer(1.0f, () =>
+                        {
+                            try
+                            {
+                                if (sphereToDelete != null)
+                                {
+                                    ReflectionHelper.Destroy(sphereToDelete);
+                                    Logger.Log($"Temporary sphere {nameToLog} destroyed");
+                                }
+                            }
+                            catch (Exception ex)
+                            {
+                                Logger.LogError($"Failed to destroy sphere: {ex.Message}");
+                            }
+                        });
+                    }
+                    else
+                    {
+                        Logger.LogError("Failed to create temporary sphere");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Logger.LogError($"Error in timer callback: {ex.Message}");
+                }
+                finally
+                {
+                    // 确保重置标志
+                    _isWaitingForOnceTimer = false;
+                }
             });
         }
 
@@ -221,6 +279,7 @@ namespace TimerMod
             _tickCount = 0;
             _currentColorIndex = 0;
             _frameCount = 0;
+            _isWaitingForOnceTimer = false;
 
             Logger.Log("Demo reset");
         }
@@ -285,11 +344,12 @@ namespace TimerMod
             {
                 try
                 {
-                    var textComponent = ReflectionHelper.GetComponent(_timerText, "UnityEngine.UI.Text");
-                    if (textComponent != null)
+                    // 更新3D文本
+                    var textMesh = ReflectionHelper.GetComponent(_timerText, "UnityEngine.TextMesh");
+                    if (textMesh != null)
                     {
                         string displayText = $"Timer: {_totalTime:F1}s | Ticks: {_tickCount}";
-                        ReflectionHelper.SetProperty(textComponent, "text", displayText);
+                        ReflectionHelper.SetProperty(textMesh, "text", displayText);
                     }
                 }
                 catch
@@ -314,6 +374,69 @@ namespace TimerMod
             {
                 ReflectionHelper.Destroy(_timerText);
                 _timerText = null;
+            }
+
+            // 清理可能存在的对象
+            CleanupGameObject("TimerCube");
+            CleanupGameObject("TimerDisplay");
+
+            // 清理所有临时球体（通过名称前缀查找）
+            CleanupTempSpheres();
+        }
+
+        /// <summary>
+        /// 清理指定名称的游戏对象
+        /// </summary>
+        private void CleanupGameObject(string name)
+        {
+            try
+            {
+                var obj = ReflectionHelper.FindGameObject(name);
+                if (obj != null)
+                {
+                    ReflectionHelper.Destroy(obj);
+                    Logger.Log($"Cleaned up: {name}");
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning($"Failed to cleanup {name}: {ex.Message}");
+            }
+        }
+
+        /// <summary>
+        /// 清理所有临时球体
+        /// </summary>
+        private void CleanupTempSpheres()
+        {
+            try
+            {
+                // 注意：这个方法在实际Unity中需要更复杂的实现
+                // 这里只是示例，实际需要遍历场景中的所有对象
+                Logger.Log("Cleaning up temporary spheres...");
+
+                // 尝试清理一些可能的球体（有限的尝试）
+                for (int i = 0; i < 10; i++)
+                {
+                    var sphereVariants = new[] { "TempSphere", "Sphere" };
+                    foreach (var variant in sphereVariants)
+                    {
+                        var obj = ReflectionHelper.FindGameObject(variant);
+                        if (obj != null)
+                        {
+                            var name = ReflectionHelper.GetProperty(obj, "name") as string;
+                            if (name != null && name.StartsWith("TempSphere_"))
+                            {
+                                ReflectionHelper.Destroy(obj);
+                                Logger.Log($"Cleaned up temporary sphere: {name}");
+                            }
+                        }
+                    }
+                }
+            }
+            catch (Exception ex)
+            {
+                Logger.LogWarning($"Error cleaning temporary spheres: {ex.Message}");
             }
         }
 
