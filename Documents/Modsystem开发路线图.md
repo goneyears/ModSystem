@@ -13,9 +13,9 @@
 | V2 | 事件系统 | IModEvent, EventBus | UnityEventBridge | ButtonMod | ⭐⭐ |
 | V3 | 反射系统 | IUnityAccess | UnityReflectionBridge | ReflectionMod | ⭐⭐⭐ |
 | V4 | 生命周期 | 生命周期管理 | Update循环 | TimerMod | ⭐⭐ |
-| V5 | 热重载 | HotReloadManager | ReloadController | DynamicMod | ⭐⭐⭐⭐ |
-| V6 | 配置系统 | IModConfig | ConfigLoader | ConfigurableMod | ⭐⭐⭐ |
-| V7 | 3D模型系统 | IModelController | GLTFLoader | RobotMod | ⭐⭐⭐⭐ |
+| V5 | 配置系统 | IModConfig | ConfigLoader | ConfigurableMod | ⭐⭐⭐ |
+| V6 | 3D模型系统 | IModelController | GLTFLoader | RobotMod | ⭐⭐⭐⭐ |
+| V7 | 热重载 | HotReloadManager | ReloadController | DynamicMod | ⭐⭐⭐⭐ |
 | V8 | 服务系统 | IModService | ServiceRegistry | ServiceProviderMod | ⭐⭐⭐ |
 | V9 | 通信系统 | Request/Response | CommunicationRouter | ChatMod | ⭐⭐⭐⭐ |
 | V10 | 资源系统 | IResourceLoader | UnityResourceLoader | ResourceMod | ⭐⭐⭐⭐ |
