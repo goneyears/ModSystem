@@ -6,11 +6,12 @@ using System.Reflection;
 using ModSystem.Core.EventSystem;
 using ModSystem.Core.Events;
 using ModSystem.Core.Interfaces;
+using ModSystem.Core.Lifecycle;
 
 namespace ModSystem.Core.Runtime
 {
     /// <summary>
-    /// 核心模组管理器
+    /// 核心模组管理器 - V4版本，添加生命周期管理
     /// </summary>
     public class ModManagerCore
     {
@@ -19,14 +20,23 @@ namespace ModSystem.Core.Runtime
         private readonly IEventBus _eventBus;
         private readonly IUnityAccess _unityAccess;
 
+        // V4新增：生命周期管理器
+        private readonly LifecycleManager _lifecycleManager;
+
         public ModManagerCore(ILogger logger, IUnityAccess unityAccess = null)
         {
             _logger = logger;
             _eventBus = new EventBus();
             _unityAccess = unityAccess;
+
+            // V4新增：创建生命周期管理器
+            _lifecycleManager = new LifecycleManager(logger);
         }
 
         public IEventBus EventBus => _eventBus;
+
+        // V4新增：暴露生命周期管理器供Unity层调用
+        public LifecycleManager LifecycleManager => _lifecycleManager;
 
         public void LoadModsFromDirectory(string directory)
         {
@@ -52,8 +62,11 @@ namespace ModSystem.Core.Runtime
 
             _logger.Log($"Loaded {_loadedMods.Count} mods");
 
+            // V4新增：报告生命周期模组数量
+            _logger.Log($"Lifecycle mods: {_lifecycleManager.GetRegisteredCount()}");
+
             // 发布系统就绪事件
-            _eventBus.Publish(new Events.SystemReadyEvent());
+            _eventBus.Publish(new SystemReadyEvent());
         }
 
         private void LoadModFromAssembly(string assemblyPath)
@@ -71,8 +84,11 @@ namespace ModSystem.Core.Runtime
                     if (mod != null && !_loadedMods.ContainsKey(mod.ModId))
                     {
                         _loadedMods[mod.ModId] = mod;
-                        var context = new ModContext(_eventBus, _logger, _unityAccess);
+
+                        // V4修改：传递生命周期管理器到context
+                        var context = new ModContext(_eventBus, _logger, _unityAccess, _lifecycleManager);
                         mod.Initialize(context);
+
                         _logger.Log($"Loaded: {mod.ModId}");
                     }
                 }
@@ -97,6 +113,9 @@ namespace ModSystem.Core.Runtime
                 }
             }
             _loadedMods.Clear();
+
+            // V4新增：清理生命周期管理器
+            _lifecycleManager.Clear();
         }
 
         public int GetLoadedModCount() => _loadedMods.Count;

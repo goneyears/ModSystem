@@ -13,6 +13,8 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "ReflectionMod", "Reflection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "SimpleReflectionMod", "SimpleReflectionMod\SimpleReflectionMod.csproj", "{9FF6766F-71C4-4AD1-AAD9-211BB4A17B83}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TimerMod", "TimerMod\TimerMod.csproj", "{EFC831E7-FF47-4E35-8458-A5F41519BC09}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -39,6 +41,10 @@ Global
 		{9FF6766F-71C4-4AD1-AAD9-211BB4A17B83}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{9FF6766F-71C4-4AD1-AAD9-211BB4A17B83}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{9FF6766F-71C4-4AD1-AAD9-211BB4A17B83}.Release|Any CPU.Build.0 = Release|Any CPU
+		{EFC831E7-FF47-4E35-8458-A5F41519BC09}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{EFC831E7-FF47-4E35-8458-A5F41519BC09}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{EFC831E7-FF47-4E35-8458-A5F41519BC09}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{EFC831E7-FF47-4E35-8458-A5F41519BC09}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
