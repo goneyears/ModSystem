@@ -11,7 +11,7 @@
   </ItemGroup>
 
   <Target Name="PostBuild" AfterTargets="PostBuildEvent">
-    <Exec Command="xcopy /Y &quot;$(TargetPath)&quot; &quot;D:\Git\ModSystem\UnityProject\Assets\StreamingAssets\Mods&quot;" />
+    <Exec Command="xcopy /Y &quot;$(TargetPath)&quot; &quot;D:\Git\ModSystem\UnityProject\Assets\StreamingAssets\Mods\&quot;" />
   </Target>
 
 </Project>

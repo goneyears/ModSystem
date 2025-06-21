@@ -1,0 +1,27 @@
+{
+  "ObjectName": "MyConfiguredCube",
+  "ObjectType": "Cube",
+  "Color": {
+    "R": 0.8,
+    "G": 0.8,
+    "B": 0.1
+  },
+  "Size": 0.5628726,
+  "Position": {
+    "X": 0.0,
+    "Y": 3.0,
+    "Z": 0.0
+  },
+  "AutoRotate": true,
+  "RotationSpeed": 45.0,
+  "EnableEffects": false,
+  "Tags": [
+    "configurable",
+    "example",
+    "configurable",
+    "example",
+    "configurable",
+    "green",
+    "rotating"
+  ]
+}

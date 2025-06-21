@@ -11,7 +11,7 @@ using ModSystem.Core.Lifecycle;
 namespace ModSystem.Core.Runtime
 {
     /// <summary>
-    /// 核心模组管理器 - V4版本，添加生命周期管理
+    /// 核心模组管理器 - V5版本，添加配置管理
     /// </summary>
     public class ModManagerCore
     {
@@ -20,8 +20,11 @@ namespace ModSystem.Core.Runtime
         private readonly IEventBus _eventBus;
         private readonly IUnityAccess _unityAccess;
 
-        // V4新增：生命周期管理器
+        // V4添加：生命周期管理器
         private readonly LifecycleManager _lifecycleManager;
+
+        // V5添加：配置路径
+        private string _configPath;
 
         public ModManagerCore(ILogger logger, IUnityAccess unityAccess = null)
         {
@@ -29,14 +32,21 @@ namespace ModSystem.Core.Runtime
             _eventBus = new EventBus();
             _unityAccess = unityAccess;
 
-            // V4新增：创建生命周期管理器
+            // V4添加：创建生命周期管理器
             _lifecycleManager = new LifecycleManager(logger);
         }
 
         public IEventBus EventBus => _eventBus;
 
-        // V4新增：暴露生命周期管理器供Unity层调用
+        // V4添加：暴露生命周期管理器
         public LifecycleManager LifecycleManager => _lifecycleManager;
+
+        // V5添加：设置配置路径的方法
+        public void SetConfigPath(string path)
+        {
+            _configPath = path;
+            _logger.Log($"Config path set to: {path}");
+        }
 
         public void LoadModsFromDirectory(string directory)
         {
@@ -62,7 +72,7 @@ namespace ModSystem.Core.Runtime
 
             _logger.Log($"Loaded {_loadedMods.Count} mods");
 
-            // V4新增：报告生命周期模组数量
+            // V4添加：报告生命周期模组数量
             _logger.Log($"Lifecycle mods: {_lifecycleManager.GetRegisteredCount()}");
 
             // 发布系统就绪事件
@@ -85,8 +95,14 @@ namespace ModSystem.Core.Runtime
                     {
                         _loadedMods[mod.ModId] = mod;
 
-                        // V4修改：传递生命周期管理器到context
-                        var context = new ModContext(_eventBus, _logger, _unityAccess, _lifecycleManager);
+                        // V5修改：传递配置路径到context
+                        var context = new ModContext(
+                            _eventBus,
+                            _logger,
+                            _unityAccess,
+                            _lifecycleManager,
+                            _configPath);  // V5添加
+
                         mod.Initialize(context);
 
                         _logger.Log($"Loaded: {mod.ModId}");
@@ -114,7 +130,7 @@ namespace ModSystem.Core.Runtime
             }
             _loadedMods.Clear();
 
-            // V4新增：清理生命周期管理器
+            // V4添加：清理生命周期管理器
             _lifecycleManager.Clear();
         }
 

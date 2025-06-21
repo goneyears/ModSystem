@@ -8,16 +8,17 @@ using ModSystem.Unity.Lifecycle;
 namespace ModSystem.Unity
 {
     /// <summary>
-    /// Unity模组系统控制器 - V4版本，添加生命周期支持
+    /// Unity模组系统控制器 - V5版本，添加配置支持
     /// </summary>
     public class ModSystemController : MonoBehaviour
     {
         [SerializeField] private string modsFolder = "Mods";
+        [SerializeField] private string configsFolder = "ModConfigs";  // V5新增
         [SerializeField] private bool loadOnStart = true;
 
         private ModManagerCore _modManager;
         private UnityAccessBridge _unityAccess;
-        private ModUpdateRunner _updateRunner;  // V4新增
+        private ModUpdateRunner _updateRunner;
         private static ModSystemController _instance;
 
         public static ModSystemController Instance => _instance;
@@ -41,14 +42,21 @@ namespace ModSystem.Unity
             _unityAccess = new UnityAccessBridge();
             _modManager = new ModManagerCore(logger, _unityAccess);
             
+            // V5新增：设置配置路径
+            // V5新增：设置配置路径
+            string configPath = Path.Combine(Application.streamingAssetsPath, modsFolder, configsFolder);
+            _modManager.SetConfigPath(configPath);
+            Debug.Log($"[ModSystemController] Config path: {configPath}");
+            
             // 初始化事件桥接
             var bridge = gameObject.AddComponent<UnityEventBridge>();
             bridge.Initialize(_modManager.EventBus);
             
-            // V4新增：初始化Update运行器
+            // V4添加：初始化Update运行器
             _updateRunner = gameObject.AddComponent<ModUpdateRunner>();
             _updateRunner.Initialize(_modManager.LifecycleManager);
-            Debug.Log("[ModSystemController] V4 - Lifecycle support enabled");
+            
+            Debug.Log("[ModSystemController] V5 - Configuration support enabled");
         }
 
         /// <summary>
@@ -79,11 +87,20 @@ namespace ModSystem.Unity
         {
             string path = Path.Combine(Application.streamingAssetsPath, modsFolder);
             _modManager.LoadModsFromDirectory(path);
+            
+            // V5添加：创建配置目录（如果不存在）
+            // V5添加：创建配置目录（如果不存在）
+            string configPath = Path.Combine(Application.streamingAssetsPath, modsFolder, configsFolder);
+            if (!Directory.Exists(configPath))
+            {
+                Directory.CreateDirectory(configPath);
+                Debug.Log($"[ModSystemController] Created config directory: {configPath}");
+            }
         }
 
         public Core.Interfaces.IEventBus GetEventBus() => _modManager.EventBus;
         public Core.Interfaces.IUnityAccess GetUnityAccess() => _unityAccess;
-        public Core.Lifecycle.LifecycleManager GetLifecycleManager() => _modManager.LifecycleManager;  // V4新增
+        public Core.Lifecycle.LifecycleManager GetLifecycleManager() => _modManager.LifecycleManager;
 
         void OnDestroy()
         {
